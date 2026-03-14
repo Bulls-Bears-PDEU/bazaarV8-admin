@@ -1,4 +1,3 @@
-import { Show, SignInButton, SignOutButton } from "@clerk/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { LogIn, LogOut } from "lucide-react";
 import { Button } from "#/components/ui/button";
@@ -22,25 +21,12 @@ function RouteComponent() {
 				</EmptyTitle>
 			</EmptyHeader>
 			<EmptyContent>
-				<Show when="signed-out">
-					<SignInButton>
-						<Button variant="default">
-							<LogIn />
-							Log In
-						</Button>
-					</SignInButton>
-				</Show>
-				<Show when="signed-in">
-					<Button variant="outline">
-						<Link to="/market">Go to dashboard</Link>
+				<Link to="/auth/signin">
+					<Button variant="default">
+						<LogIn />
+						Log In
 					</Button>
-					<SignOutButton>
-						<Button variant="destructive">
-							<LogOut />
-							Log out
-						</Button>
-					</SignOutButton>
-				</Show>
+				</Link>
 			</EmptyContent>
 		</Empty>
 	);

@@ -4,7 +4,7 @@ import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 
 import "../styles.css";
-import { ClerkLoaded, ClerkLoading } from "@clerk/react";
+import { Toaster } from "sonner";
 import {
 	Empty,
 	EmptyDescription,
@@ -12,7 +12,6 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from "#/components/ui/empty";
-import { Spinner } from "#/components/ui/spinner";
 
 export const Route = createRootRoute({
 	component: RootComponent,
@@ -31,37 +30,23 @@ export const Route = createRootRoute({
 function RootComponent() {
 	return (
 		<>
-			<ClerkLoaded>
-				<Outlet />
-				<TanStackDevtools
-					config={{
-						position: "bottom-right",
-					}}
-					plugins={[
-						{
-							name: "TanStack Router",
-							render: <TanStackRouterDevtoolsPanel />,
-						},
-						{
-							name: "React Query",
-							render: <ReactQueryDevtoolsPanel />,
-						},
-					]}
-				/>
-			</ClerkLoaded>
-			<ClerkLoading>
-				<Empty className="w-full h-screen">
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<Spinner />
-						</EmptyMedia>
-						<EmptyTitle>Loading application</EmptyTitle>
-						<EmptyDescription>
-							Please wait while the application loads
-						</EmptyDescription>
-					</EmptyHeader>
-				</Empty>
-			</ClerkLoading>
+			<Outlet />
+			<Toaster />
+			<TanStackDevtools
+				config={{
+					position: "bottom-right",
+				}}
+				plugins={[
+					{
+						name: "TanStack Router",
+						render: <TanStackRouterDevtoolsPanel />,
+					},
+					{
+						name: "React Query",
+						render: <ReactQueryDevtoolsPanel />,
+					},
+				]}
+			/>
 		</>
 	);
 }

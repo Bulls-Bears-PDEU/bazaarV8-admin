@@ -1,4 +1,3 @@
-import { UserButton } from "@clerk/react";
 import {
 	CandlestickChart,
 	Cog,

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as Not_authorizedRouteImport } from './routes/not_authorized'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,6 +18,11 @@ import { Route as AuthSigninRouteImport } from './routes/auth/signin'
 import { Route as AdminStocksRouteImport } from './routes/_admin/stocks'
 import { Route as AdminMarketRouteImport } from './routes/_admin/market'
 
+const Not_authorizedRoute = Not_authorizedRouteImport.update({
+  id: '/not_authorized',
+  path: '/not_authorized',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -55,6 +61,7 @@ const AdminMarketRoute = AdminMarketRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/not_authorized': typeof Not_authorizedRoute
   '/market': typeof AdminMarketRoute
   '/stocks': typeof AdminStocksRoute
   '/auth/signin': typeof AuthSigninRoute
@@ -63,6 +70,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/not_authorized': typeof Not_authorizedRoute
   '/market': typeof AdminMarketRoute
   '/stocks': typeof AdminStocksRoute
   '/auth/signin': typeof AuthSigninRoute
@@ -73,6 +81,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_admin': typeof AdminRouteWithChildren
   '/about': typeof AboutRoute
+  '/not_authorized': typeof Not_authorizedRoute
   '/_admin/market': typeof AdminMarketRoute
   '/_admin/stocks': typeof AdminStocksRoute
   '/auth/signin': typeof AuthSigninRoute
@@ -83,17 +92,26 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/not_authorized'
     | '/market'
     | '/stocks'
     | '/auth/signin'
     | '/auth/signup'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/market' | '/stocks' | '/auth/signin' | '/auth/signup'
+  to:
+    | '/'
+    | '/about'
+    | '/not_authorized'
+    | '/market'
+    | '/stocks'
+    | '/auth/signin'
+    | '/auth/signup'
   id:
     | '__root__'
     | '/'
     | '/_admin'
     | '/about'
+    | '/not_authorized'
     | '/_admin/market'
     | '/_admin/stocks'
     | '/auth/signin'
@@ -104,12 +122,20 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   AboutRoute: typeof AboutRoute
+  Not_authorizedRoute: typeof Not_authorizedRoute
   AuthSigninRoute: typeof AuthSigninRoute
   AuthSignupRoute: typeof AuthSignupRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/not_authorized': {
+      id: '/not_authorized'
+      path: '/not_authorized'
+      fullPath: '/not_authorized'
+      preLoaderRoute: typeof Not_authorizedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -178,6 +204,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   AboutRoute: AboutRoute,
+  Not_authorizedRoute: Not_authorizedRoute,
   AuthSigninRoute: AuthSigninRoute,
   AuthSignupRoute: AuthSignupRoute,
 }

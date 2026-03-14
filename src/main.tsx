@@ -1,5 +1,3 @@
-import { ClerkProvider } from "@clerk/react";
-import { shadcn } from "@clerk/ui/themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import React from "react";
@@ -30,18 +28,9 @@ if (!rootElement.innerHTML) {
 		<React.StrictMode>
 			<QueryClientProvider client={queryClient}>
 				<ThemeProvider>
-					<ClerkProvider
-						appearance={{
-							theme: shadcn,
-						}}
-						publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}
-						signInUrl="/auth/signin"
-						signUpUrl="/auth/signup"
-					>
-						<TooltipProvider>
-							<RouterProvider router={router} />
-						</TooltipProvider>
-					</ClerkProvider>
+					<TooltipProvider>
+						<RouterProvider router={router} />
+					</TooltipProvider>
 				</ThemeProvider>
 			</QueryClientProvider>
 		</React.StrictMode>,
