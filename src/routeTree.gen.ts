@@ -17,6 +17,7 @@ import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AuthSigninRouteImport } from './routes/auth/signin'
 import { Route as AdminStocksRouteImport } from './routes/_admin/stocks'
 import { Route as AdminMarketRouteImport } from './routes/_admin/market'
+import { Route as AdminStockIdRouteImport } from './routes/_admin/stock.$id'
 
 const Not_authorizedRoute = Not_authorizedRouteImport.update({
   id: '/not_authorized',
@@ -57,6 +58,11 @@ const AdminMarketRoute = AdminMarketRouteImport.update({
   path: '/market',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminStockIdRoute = AdminStockIdRouteImport.update({
+  id: '/stock/$id',
+  path: '/stock/$id',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/stocks': typeof AdminStocksRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/stock/$id': typeof AdminStockIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/stocks': typeof AdminStocksRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/stock/$id': typeof AdminStockIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/_admin/stocks': typeof AdminStocksRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/signup': typeof AuthSignupRoute
+  '/_admin/stock/$id': typeof AdminStockIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/stocks'
     | '/auth/signin'
     | '/auth/signup'
+    | '/stock/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/stocks'
     | '/auth/signin'
     | '/auth/signup'
+    | '/stock/$id'
   id:
     | '__root__'
     | '/'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/_admin/stocks'
     | '/auth/signin'
     | '/auth/signup'
+    | '/_admin/stock/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -185,17 +197,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMarketRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/stock/$id': {
+      id: '/_admin/stock/$id'
+      path: '/stock/$id'
+      fullPath: '/stock/$id'
+      preLoaderRoute: typeof AdminStockIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
   AdminMarketRoute: typeof AdminMarketRoute
   AdminStocksRoute: typeof AdminStocksRoute
+  AdminStockIdRoute: typeof AdminStockIdRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminMarketRoute: AdminMarketRoute,
   AdminStocksRoute: AdminStocksRoute,
+  AdminStockIdRoute: AdminStockIdRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)

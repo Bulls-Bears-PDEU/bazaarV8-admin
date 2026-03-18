@@ -1,18 +1,21 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import {
+	createRootRoute,
+	Outlet,
+	useRouterState,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 
 import "../styles.css";
 import { Toaster } from "sonner";
+import NProgress from "#/components/n-progress";
 import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
-	EmptyMedia,
 	EmptyTitle,
 } from "#/components/ui/empty";
-
 export const Route = createRootRoute({
 	component: RootComponent,
 	notFoundComponent: () => (
@@ -27,11 +30,21 @@ export const Route = createRootRoute({
 	),
 });
 
+function GlobalLoadingOverlay() {
+	const routerStatus = useRouterState({
+		select: (state) => state.status,
+	});
+	const shouldShow = routerStatus === "pending";
+
+	return <NProgress isAnimating={shouldShow} />;
+}
+
 function RootComponent() {
 	return (
 		<>
+			<GlobalLoadingOverlay />
 			<Outlet />
-			<Toaster />
+			<Toaster richColors />
 			<TanStackDevtools
 				config={{
 					position: "bottom-right",

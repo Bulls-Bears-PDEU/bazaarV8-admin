@@ -1,4 +1,6 @@
+import { redirect } from "@tanstack/react-router";
 import { ChevronsUpDown, LogOut } from "lucide-react";
+import { useCallback } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import {
 	DropdownMenu,
@@ -21,7 +23,15 @@ export function NavUser() {
 	const { isMobile } = useSidebar();
 	// const { user } = useUser();
 	const session = useSession();
-
+	const handleLogout = useCallback(async () => {
+		await authClient.signOut({
+			fetchOptions: {
+				onSuccess: () => {
+					redirect({ to: "/" });
+				},
+			},
+		});
+	}, []);
 	if (!session) {
 		return null;
 	}
@@ -70,7 +80,7 @@ export function NavUser() {
 							</div>
 						</DropdownMenuLabel>
 						<DropdownMenuSeparator />
-						<DropdownMenuItem onClick={() => authClient.signOut()}>
+						<DropdownMenuItem onClick={handleLogout}>
 							<LogOut />
 							Log out
 						</DropdownMenuItem>

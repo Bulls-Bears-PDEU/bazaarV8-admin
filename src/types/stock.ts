@@ -1,13 +1,25 @@
 export type Stock = {
-	id: 1;
-	symbol: string;
+	id: number;
 	name: string;
-	// TODO: Remove price and volume from stock and move to a separate table
-	price: number;
-	volume: number;
-	drift: number;
-	volatility: number;
+	symbol: string;
 	sector: string;
-	created_at: Date;
+	volatility: number;
+	created_at: string;
 	isLocked: boolean;
+};
+
+export type StockOHLC = {
+	id: number;
+	stock_id: number;
+	open_price: number;
+	high_price: number;
+	low_price: number;
+	close_price: number;
+	timestamp: string;
+};
+
+export type StockPrice = {
+	price: number;
+	indicator?: "up" | "down" | "neutral";
+	priceChange?: number;
 };
