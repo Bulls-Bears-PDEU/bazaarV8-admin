@@ -43,3 +43,37 @@ export const addStockOhlc = async (ohlcData: StockOHLC) => {
 	);
 	return res.data as StockOHLC;
 };
+
+export const searchStocks = async (query: string) => {
+	const res = await axios.get(
+		`/stocks/searchStocks?q=${encodeURIComponent(query)}`,
+	);
+	return res.data as (Stock & { price: number })[];
+};
+
+export const getCurrentPricesForStocks = async (stockIds: string[]) => {
+	const url = `/stocks/getCurrentPricesForStocks?${stockIds.map((id) => `stockIds=${encodeURIComponent(id)}`).join("&")}`;
+	const res = await axios.get(url);
+	return res.data as Record<string, number>;
+};
+
+export const updateStock = async (
+	stockId: number,
+	updatedData: Partial<Stock>,
+) => {
+	const res = await axios.put(`/stocks/updateStock/${stockId}`, updatedData);
+	return res.data as Stock;
+};
+
+export const getAllSectors = async () => {
+	const res = await axios.get("/stocks/getAllSectors");
+	return res.data as string[];
+};
+
+export const addStock = async (
+	stockData: Omit<Stock, "id" | "created_at" | "isLocked" | "name_tsv">,
+	initPrice: number,
+) => {
+	const res = await axios.post("/stocks/addStock", { stockData, initPrice });
+	return res.data as Stock;
+};

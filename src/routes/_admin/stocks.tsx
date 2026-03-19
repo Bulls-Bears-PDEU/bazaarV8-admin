@@ -1,3 +1,4 @@
+import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
@@ -16,17 +17,48 @@ import {
 	Trash2,
 } from "lucide-react";
 import { useState } from "react";
-import { getAllStockPrices, getAllStocks } from "#/api/stocks";
+import { toast } from "sonner";
+import {
+	addStock,
+	getAllSectors,
+	getAllStockPrices,
+	getAllStocks,
+} from "#/api/stocks";
 import { Button } from "#/components/ui/button";
 import { ButtonGroup } from "#/components/ui/button-group";
 import { Checkbox } from "#/components/ui/checkbox";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "#/components/ui/dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
-import { FieldDescription } from "#/components/ui/field";
+import {
+	Field,
+	FieldDescription,
+	FieldGroup,
+	FieldLabel,
+	FieldSet,
+} from "#/components/ui/field";
+import { Input } from "#/components/ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "#/components/ui/select";
+import { Spinner } from "#/components/ui/spinner";
 import {
 	Table,
 	TableBody,
@@ -134,6 +166,7 @@ function RouteComponent() {
 			enableColumnFilter: false,
 		},
 	];
+
 	const stocks = useQuery({
 		queryKey: ["stocks"],
 		queryFn: async () => {
@@ -168,6 +201,45 @@ function RouteComponent() {
 		},
 	});
 
+	const addStockForm = useForm({
+		defaultValues: {
+			name: "",
+			symbol: "",
+			sector: "",
+			volatility: 0,
+			initPrice: 0,
+		},
+		onSubmit: async ({ value }) => {
+			// Call API to add stock
+			try {
+				const stockData: Omit<
+					Stock,
+					"id" | "created_at" | "isLocked" | "name_tsv"
+				> = {
+					name: value.name,
+					symbol: value.symbol,
+					sector: value.sector,
+					volatility: value.volatility,
+				};
+				const newStock = await addStock(stockData, value.initPrice);
+				console.log("Added new stock:", newStock);
+				toast.success("Stock added successfully!");
+				stocks.refetch();
+			} catch (error) {
+				console.error("Error adding stock:", error);
+				toast.error("Failed to add stock.");
+			}
+		},
+	});
+
+	const allSectors = useQuery({
+		queryKey: ["sectors"],
+		queryFn: async () => {
+			const res = await getAllSectors();
+			return res;
+		},
+	});
+
 	if (stocks.isLoading) {
 		return <div>Loading stocks...</div>;
 	}
@@ -178,47 +250,190 @@ function RouteComponent() {
 
 	return (
 		<div className="p-4 w-full h-full ">
-			<h2 className="mb-4 text-2xl font-bold">Stocks</h2>
-			<div className="rounded-md border">
-				<Table>
-					<TableHeader>
-						{table.getHeaderGroups().map((headerGroup) => (
-							<TableRow key={headerGroup.id}>
-								{headerGroup.headers.map((header) =>
-									header.isPlaceholder ? null : (
-										<TableHead
-											key={header.id}
-											className="cursor-pointer select-none "
-										>
-											<div className="flex items-center justify-between gap-1">
-												{flexRender(
-													header.column.columnDef.header,
-													header.getContext(),
-												)}
-											</div>
-										</TableHead>
-									),
-								)}
-							</TableRow>
-						))}
-					</TableHeader>
-					<TableBody>
-						{table.getRowModel().rows.map((row) => (
-							<TableRow key={row.id}>
-								{row.getVisibleCells().map((cell) => (
-									<TableCell key={cell.id}>
-										{flexRender(cell.column.columnDef.cell, cell.getContext())}
-									</TableCell>
-								))}
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-				<FieldDescription className="p-4">
-					{Object.keys(rowSelection).length} of{" "}
-					{table.getPreFilteredRowModel().rows.length} rows selected.
-				</FieldDescription>
+			<div className="flex items-center justify-between mb-4">
+				<h2 className="text-2xl font-bold">Stocks</h2>
+				<Dialog>
+					<DialogTrigger asChild>
+						<Button>Add Stock</Button>
+					</DialogTrigger>
+					<DialogContent>
+						<form
+							onSubmit={(e) => {
+								e.preventDefault();
+								addStockForm.handleSubmit();
+							}}
+						>
+							<DialogHeader>
+								<DialogTitle>Add Stock</DialogTitle>
+								<DialogDescription>
+									This will add a new stock to the database. Please ensure that
+									the data is accurate before submitting.
+								</DialogDescription>
+							</DialogHeader>
+							<FieldGroup className="my-4">
+								<FieldSet>
+									<FieldGroup>
+										<addStockForm.Field name="name">
+											{({ state, handleChange, handleBlur }) => (
+												<Field>
+													<FieldLabel>Stock Name</FieldLabel>
+													<Input
+														type="text"
+														value={state.value}
+														onChange={(e) => handleChange(e.target.value)}
+														onBlur={handleBlur}
+													/>
+												</Field>
+											)}
+										</addStockForm.Field>
+										<addStockForm.Field name="symbol">
+											{({ state, handleChange, handleBlur }) => (
+												<Field>
+													<FieldLabel>Stock Symbol</FieldLabel>
+													<Input
+														type="text"
+														value={state.value}
+														onChange={(e) => handleChange(e.target.value)}
+														onBlur={handleBlur}
+													/>
+												</Field>
+											)}
+										</addStockForm.Field>
+										<addStockForm.Field name="sector">
+											{({ state, handleChange }) => (
+												<Field>
+													<FieldLabel>Sector</FieldLabel>
+													<Select
+														value={state.value}
+														onValueChange={(value) => handleChange(value)}
+													>
+														<SelectTrigger className="w-[180px]">
+															<SelectValue placeholder="Sector" />
+														</SelectTrigger>
+														<SelectContent>
+															<SelectGroup>
+																{allSectors.data?.map((sector) => (
+																	<SelectItem key={sector} value={sector}>
+																		{sector}
+																	</SelectItem>
+																))}
+															</SelectGroup>
+														</SelectContent>
+													</Select>
+												</Field>
+											)}
+										</addStockForm.Field>
+										<addStockForm.Field name="volatility">
+											{({ state, handleChange, handleBlur }) => (
+												<Field>
+													<FieldLabel>Volatility</FieldLabel>
+													<Input
+														type="number"
+														value={state.value}
+														onChange={(e) =>
+															handleChange(Number(e.target.value))
+														}
+														onBlur={handleBlur}
+													/>
+												</Field>
+											)}
+										</addStockForm.Field>
+										<addStockForm.Field name="initPrice">
+											{({ state, handleChange, handleBlur }) => (
+												<Field>
+													<FieldLabel>Initial Price</FieldLabel>
+													<Input
+														type="number"
+														value={state.value}
+														onChange={(e) =>
+															handleChange(Number(e.target.value))
+														}
+														onBlur={handleBlur}
+													/>
+												</Field>
+											)}
+										</addStockForm.Field>
+									</FieldGroup>
+								</FieldSet>
+							</FieldGroup>
+							<DialogFooter>
+								<FieldGroup>
+									<addStockForm.Subscribe
+										selector={(state) => [state.canSubmit, state.isSubmitting]}
+									>
+										{([canSubmit, isSubmitting]) => (
+											<Button
+												type="submit"
+												disabled={!canSubmit || isSubmitting}
+											>
+												{isSubmitting && <Spinner className="mr-2" />}
+												{isSubmitting ? "Adding..." : "Add Record"}
+											</Button>
+										)}
+									</addStockForm.Subscribe>
+									<DialogTrigger asChild>
+										<Button type="button" variant="outline" className="w-full">
+											Cancel
+										</Button>
+									</DialogTrigger>
+								</FieldGroup>
+							</DialogFooter>
+						</form>
+					</DialogContent>
+				</Dialog>
 			</div>
+
+			{stocks.isPending && (
+				<div className="flex items-center justify-center py-8">
+					<Spinner />
+					<span className="ml-2">Searching stocks...</span>
+				</div>
+			)}
+			{stocks.isSuccess && (
+				<div className="rounded-md border">
+					<Table>
+						<TableHeader>
+							{table.getHeaderGroups().map((headerGroup) => (
+								<TableRow key={headerGroup.id}>
+									{headerGroup.headers.map((header) =>
+										header.isPlaceholder ? null : (
+											<TableHead
+												key={header.id}
+												className="cursor-pointer select-none "
+											>
+												<div className="flex items-center justify-between gap-1">
+													{flexRender(
+														header.column.columnDef.header,
+														header.getContext(),
+													)}
+												</div>
+											</TableHead>
+										),
+									)}
+								</TableRow>
+							))}
+						</TableHeader>
+						<TableBody>
+							{table.getRowModel().rows.map((row) => (
+								<TableRow key={row.id}>
+									{row.getVisibleCells().map((cell) => (
+										<TableCell key={cell.id}>
+											{flexRender(
+												cell.column.columnDef.cell,
+												cell.getContext(),
+											)}
+										</TableCell>
+									))}
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
+					<FieldDescription className="p-4">
+						{Object.keys(rowSelection).length} of{" "}
+						{table.getPreFilteredRowModel().rows.length} rows selected.
+					</FieldDescription>
+				</div>
+			)}
 			{table.getFilteredSelectedRowModel().rows.length > 0 && (
 				//align to center bottom of the screen
 				<div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 dark:border backdrop-blur-sm bg-white/8 p-2 rounded-xl shadow-md flex items-center gap-4 border">

@@ -13,7 +13,6 @@ import {
 	ArrowDown,
 	ArrowDownUp,
 	ArrowUp,
-	Dot,
 	IndianRupee,
 	Landmark,
 	Pen,
@@ -23,9 +22,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import {
 	addStockOhlc,
+	getAllSectors,
 	getStock,
 	getStockOhlc,
 	getStockPrice,
+	updateStock,
 } from "#/api/stocks";
 import TVChart from "#/components/tv-chart";
 import { Badge } from "#/components/ui/badge";
@@ -42,14 +43,23 @@ import {
 } from "#/components/ui/dialog";
 import {
 	Field,
+	FieldContent,
 	FieldDescription,
 	FieldGroup,
 	FieldLabel,
-	FieldLegend,
 	FieldSet,
 } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "#/components/ui/select";
 import { Spinner } from "#/components/ui/spinner";
+import { Switch } from "#/components/ui/switch";
 import {
 	Table,
 	TableBody,
@@ -79,11 +89,6 @@ function RouteComponent() {
 		queryKey: ["stock", id, "ohlc"],
 		queryFn: () => (id ? getStockOhlc(id) : Promise.resolve(null)),
 	});
-
-	const handleEditName = () => {
-		// Implement the logic to edit the stock name here
-		// For example, you could open a modal with a form to edit the name
-	};
 
 	const [sorting, setSorting] = useState<SortingState>([]);
 	const columns: ColumnDef<StockOHLC>[] = [
@@ -193,6 +198,47 @@ function RouteComponent() {
 		},
 	});
 
+	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+	const allSectors = useQuery({
+		queryKey: ["sectors"],
+		queryFn: async () => {
+			const sectors = await getAllSectors();
+			return sectors;
+		},
+	});
+	const editStockFormOptions = formOptions({
+		defaultValues: {
+			name: stock.data?.name || "",
+			symbol: stock.data?.symbol || "",
+			sector: stock.data?.sector || "",
+			volatility: stock.data?.volatility || 0,
+			isLocked: stock.data?.isLocked || false,
+		},
+	});
+	const editStockForm = useForm({
+		...editStockFormOptions,
+		onSubmit: async ({ value }) => {
+			try {
+				const updatedData = {
+					name: value.name,
+					symbol: value.symbol,
+					sector: value.sector,
+					volatility: value.volatility,
+					isLocked: value.isLocked,
+				};
+				console.log("Updating stock with data:", updatedData);
+				const result = await updateStock(Number(id), updatedData);
+				console.info("Result from API:", result);
+				queryClient.invalidateQueries({ queryKey: ["stock", id] });
+				toast.success("Stock details updated successfully!");
+				setIsEditDialogOpen(false);
+			} catch (error) {
+				console.error("Error updating stock details:", error);
+				toast.error("Failed to update stock details. Please try again.");
+			}
+		},
+	});
+
 	if (stock.isLoading) {
 		return (
 			<div className="flex h-screen w-full items-center justify-center">
@@ -277,7 +323,7 @@ function RouteComponent() {
 				<div className="self-stretch aspect-square shrink-0">
 					<Button
 						// variant=
-						onClick={handleEditName}
+						onClick={() => setIsEditDialogOpen(true)}
 						className="h-full w-full"
 					>
 						<Pen />
@@ -346,11 +392,128 @@ function RouteComponent() {
 					</Table>
 				</div>
 			</div>
-			<Dialog>
+			<Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
 				{/* Implement the dialog for editing stock details here */}
 				<DialogContent>
-					<h2 className="text-2xl font-bold mb-4">Edit Stock Details</h2>
-					{/* Add form fields for editing stock details such as name, symbol, sector, volatility, and lock status */}
+					<form
+						onSubmit={(e) => {
+							e.preventDefault();
+							editStockForm.handleSubmit();
+						}}
+					>
+						<DialogHeader>
+							<DialogTitle>Edit Stock Details</DialogTitle>
+							<DialogDescription>
+								Update the stock information below. Make sure to save your
+								changes before closing the dialog.
+							</DialogDescription>
+						</DialogHeader>
+						<FieldGroup className="my-4">
+							<FieldSet>
+								<FieldGroup>
+									<editStockForm.Field name="name">
+										{({ state, handleChange, handleBlur }) => (
+											<Field>
+												<FieldLabel>Name</FieldLabel>
+												<Input
+													value={state.value}
+													onChange={(e) => handleChange(e.target.value)}
+													onBlur={handleBlur}
+												/>
+											</Field>
+										)}
+									</editStockForm.Field>
+									<editStockForm.Field name="symbol">
+										{({ state, handleChange, handleBlur }) => (
+											<Field>
+												<FieldLabel>Symbol</FieldLabel>
+												<Input
+													value={state.value}
+													onChange={(e) => handleChange(e.target.value)}
+													onBlur={handleBlur}
+												/>
+											</Field>
+										)}
+									</editStockForm.Field>
+									<editStockForm.Field name="sector">
+										{({ state, handleChange }) => (
+											<Field>
+												<FieldLabel>Sector</FieldLabel>
+												<Select
+													value={state.value}
+													onValueChange={(value) => handleChange(value)}
+												>
+													<SelectTrigger className="w-[180px]">
+														<SelectValue placeholder="Sector" />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectGroup>
+															{allSectors.data?.map((sector) => (
+																<SelectItem key={sector} value={sector}>
+																	{sector}
+																</SelectItem>
+															))}
+														</SelectGroup>
+													</SelectContent>
+												</Select>
+											</Field>
+										)}
+									</editStockForm.Field>
+									<editStockForm.Field name="volatility">
+										{({ state, handleChange, handleBlur }) => (
+											<Field>
+												<FieldLabel>Volatility</FieldLabel>
+												<Input
+													type="number"
+													step="0.01"
+													value={state.value}
+													onChange={(e) => handleChange(Number(e.target.value))}
+													onBlur={handleBlur}
+												/>
+											</Field>
+										)}
+									</editStockForm.Field>
+									<editStockForm.Field name="isLocked">
+										{({ state, handleChange }) => (
+											<Field orientation="horizontal">
+												<FieldContent>
+													<FieldLabel>Lock</FieldLabel>
+													<FieldDescription>
+														Locking the stock prevents further edits
+													</FieldDescription>
+												</FieldContent>
+												<Switch
+													checked={state.value}
+													onCheckedChange={(value) => handleChange(!!value)}
+												>
+													{state.value ? "Locked" : "Unlocked"}
+												</Switch>
+											</Field>
+										)}
+									</editStockForm.Field>
+								</FieldGroup>
+							</FieldSet>
+						</FieldGroup>
+						<DialogFooter>
+							<FieldGroup>
+								<editStockForm.Subscribe
+									selector={(state) => [state.canSubmit, state.isSubmitting]}
+								>
+									{([canSubmit, isSubmitting]) => (
+										<Button type="submit" disabled={!canSubmit || isSubmitting}>
+											{isSubmitting && <Spinner className="mr-2" />}
+											{isSubmitting ? "Saving..." : "Save Changes"}
+										</Button>
+									)}
+								</editStockForm.Subscribe>
+								<DialogTrigger asChild>
+									<Button type="button" variant="outline" className="w-full">
+										Cancel
+									</Button>
+								</DialogTrigger>
+							</FieldGroup>
+						</DialogFooter>
+					</form>
 				</DialogContent>
 			</Dialog>
 			<Dialog
@@ -447,9 +610,12 @@ function RouteComponent() {
 										</Button>
 									)}
 								</addRecordForm.Subscribe>
-								<Button type="button" variant="outline" className="w-full">
-									Cancel
-								</Button>
+
+								<DialogTrigger asChild>
+									<Button type="button" variant="outline" className="w-full">
+										Cancel
+									</Button>
+								</DialogTrigger>
 							</FieldGroup>
 						</DialogFooter>
 					</form>
