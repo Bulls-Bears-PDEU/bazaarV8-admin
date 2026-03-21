@@ -19,7 +19,7 @@ const TVChart = ({ candleStickData }: { candleStickData: StockOHLC[] }) => {
 			layout: {
 				background: {
 					type: ColorType.Solid,
-					color: "oklch(0.275 0.011 216.9)",
+					color: "oklch(0.274 0.006 286.033)",
 				},
 				textColor: "white",
 			},
@@ -27,11 +27,11 @@ const TVChart = ({ candleStickData }: { candleStickData: StockOHLC[] }) => {
 			grid: {
 				vertLines: {
 					// make these color lighter "oklch(0.218 0.008 223.9)" not trnasparent, but lighter
-					color: "oklch(0.375 0.011 216.9)",
+					color: "oklch(0.374 0.006 286.033)",
 				},
 				horzLines: {
 					// make these color lighter "oklch(0.218 0.008 223.9)" not trnasparent, but lighter
-					color: "oklch(0.375 0.011 216.9)",
+					color: "oklch(0.374 0.006 286.033)",
 				},
 			},
 			crosshair: {

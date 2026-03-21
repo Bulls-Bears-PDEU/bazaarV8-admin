@@ -17,6 +17,9 @@ import {
 	Landmark,
 	Pen,
 	Plus,
+	TrendingDown,
+	TrendingUp,
+	TrendingUpDown,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -58,6 +61,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#/components/ui/select";
+import { Skeleton } from "#/components/ui/skeleton";
 import { Spinner } from "#/components/ui/spinner";
 import { Switch } from "#/components/ui/switch";
 import {
@@ -73,6 +77,25 @@ import type { StockOHLC } from "#/types/stock";
 export const Route = createFileRoute("/_admin/stock/$id")({
 	component: RouteComponent,
 });
+
+function formatCurrency(value?: number | null) {
+	if (value === null || value === undefined || Number.isNaN(value)) {
+		return "-";
+	}
+
+	return value.toLocaleString("en-IN", {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2,
+	});
+}
+
+function formatPercent(value?: number | null) {
+	if (value === null || value === undefined || Number.isNaN(value)) {
+		return "-";
+	}
+
+	return `${value.toFixed(2)}%`;
+}
 
 function RouteComponent() {
 	const { id } = Route.useParams();
@@ -239,10 +262,25 @@ function RouteComponent() {
 		},
 	});
 
+	const currentPrice = stockCurrentPrice.data?.price ?? null;
+	const currentPriceChange = stockCurrentPrice.data?.priceChange ?? null;
+	const currentPriceChangePercent =
+		currentPrice !== null &&
+		currentPriceChange !== null &&
+		currentPrice - currentPriceChange !== 0
+			? (currentPriceChange / (currentPrice - currentPriceChange)) * 100
+			: null;
+
 	if (stock.isLoading) {
 		return (
-			<div className="flex h-screen w-full items-center justify-center">
-				<Spinner />
+			<div className="p-4">
+				<div className="rounded-2xl border bg-card p-6">
+					<div className="flex flex-col gap-4">
+						<Skeleton className="h-8 w-48" />
+						<Skeleton className="h-24 w-full" />
+						<Skeleton className="h-64 w-full" />
+					</div>
+				</div>
 			</div>
 		);
 	}
@@ -258,48 +296,45 @@ function RouteComponent() {
 						<Badge variant="default">{stock.data?.symbol}</Badge>
 					</div>
 				</div>
-				<div className="flex items-center gap-4">
+				<div className="rounded-xl bg-secondary p-4">
+					<div className="text-xs uppercase tracking-wide text-muted-foreground">
+						Current Price
+					</div>
 					{stockCurrentPrice.isLoading ? (
-						<Spinner />
+						<Skeleton className="mt-2 h-8 w-40" />
 					) : (
-						<div className="text-2xl whitespace-nowrap flex items-center gap-1">
-							<IndianRupee />
-							{stockCurrentPrice.data?.price}
-							<div
-								className={
-									stockCurrentPrice.data?.indicator === "up"
-										? "text-green-500"
-										: stockCurrentPrice.data?.indicator === "down"
-											? "text-red-500"
-											: "text-gray-500"
-								}
-							>
-								<span className="text-sm font-normal">
-									( {stockCurrentPrice.data?.priceChange?.toFixed(2)} )
-									{/* Show percentage change */}
-									{stockCurrentPrice.data?.priceChange
-										? ` ${(
-												(stockCurrentPrice.data.priceChange /
-													(stockCurrentPrice.data.price -
-														stockCurrentPrice.data.priceChange)) *
-													100
-											).toFixed(2)}%`
-										: ""}
+						<div className="mt-2 flex flex-col gap-1">
+							<div className="flex items-center gap-1 text-3xl font-semibold leading-none">
+								<IndianRupee />
+								<span>{formatCurrency(currentPrice)}</span>
+							</div>
+							<div className="flex items-center gap-2 text-sm">
+								<Badge
+									variant={
+										stockCurrentPrice.data?.indicator === "down"
+											? "destructive"
+											: "secondary"
+									}
+								>
+									{stockCurrentPrice.data?.indicator === "down" ? (
+										<TrendingDown className="size-4" />
+									) : stockCurrentPrice.data?.indicator === "up" ? (
+										<TrendingUp className="size-4" />
+									) : (
+										<TrendingUpDown className="size-4" />
+									)}
+									{formatCurrency(currentPriceChange)}
+								</Badge>
+								<span className="text-muted-foreground">
+									{formatPercent(currentPriceChangePercent)}
 								</span>
 							</div>
-							{/* {stockCurrentPrice.data?.indicator === "up" && (
-								<ArrowUp className="text-green-500" />
-							)}
-							{stockCurrentPrice.data?.indicator === "down" && (
-								<ArrowDown className="text-red-500" />
-							)} */}
 						</div>
 					)}
 				</div>
 			</div>
-			{/* Square edit icon button */}
 			<div className="flex items-stretch gap-4 mb-4">
-				<div className="rounded-md bg-muted p-4 w-full">
+				<div className="rounded-md bg-secondary p-4 w-full">
 					<p>
 						<span className="font-semibold">Sector:</span> {stock.data?.sector}
 					</p>
@@ -322,7 +357,6 @@ function RouteComponent() {
 				</div>
 				<div className="self-stretch aspect-square shrink-0">
 					<Button
-						// variant=
 						onClick={() => setIsEditDialogOpen(true)}
 						className="h-full w-full"
 					>
@@ -347,7 +381,6 @@ function RouteComponent() {
 				)
 			)}
 
-			{/* Datatable to list and edit ohlc data */}
 			<div className="mt-8">
 				<div className="flex items-center justify-between mb-4">
 					<h2 className="text-2xl font-bold">Historical Price Data</h2>
