@@ -302,7 +302,7 @@ function RouteComponent() {
 					</div>
 					{stockCurrentPrice.isLoading ? (
 						<Skeleton className="mt-2 h-8 w-40" />
-					) : (
+					) : stockCurrentPrice.data?.price ? (
 						<div className="mt-2 flex flex-col gap-1">
 							<div className="flex items-center gap-1 text-3xl font-semibold leading-none">
 								<IndianRupee />
@@ -329,6 +329,11 @@ function RouteComponent() {
 									{formatPercent(currentPriceChangePercent)}
 								</span>
 							</div>
+						</div>
+					) : (
+						<div className="mt-2 text-3xl font-semibold leading-none">
+							<IndianRupee />
+							<span>-</span>
 						</div>
 					)}
 				</div>

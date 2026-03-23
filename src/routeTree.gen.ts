@@ -19,6 +19,7 @@ import { Route as AdminUsersRouteImport } from './routes/_admin/users'
 import { Route as AdminStocksRouteImport } from './routes/_admin/stocks'
 import { Route as AdminNewsRouteImport } from './routes/_admin/news'
 import { Route as AdminMarketRouteImport } from './routes/_admin/market'
+import { Route as AdminIposRouteImport } from './routes/_admin/ipos'
 import { Route as AdminStockIdRouteImport } from './routes/_admin/stock.$id'
 
 const Not_authorizedRoute = Not_authorizedRouteImport.update({
@@ -70,6 +71,11 @@ const AdminMarketRoute = AdminMarketRouteImport.update({
   path: '/market',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminIposRoute = AdminIposRouteImport.update({
+  id: '/ipos',
+  path: '/ipos',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminStockIdRoute = AdminStockIdRouteImport.update({
   id: '/stock/$id',
   path: '/stock/$id',
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/not_authorized': typeof Not_authorizedRoute
+  '/ipos': typeof AdminIposRoute
   '/market': typeof AdminMarketRoute
   '/news': typeof AdminNewsRoute
   '/stocks': typeof AdminStocksRoute
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/not_authorized': typeof Not_authorizedRoute
+  '/ipos': typeof AdminIposRoute
   '/market': typeof AdminMarketRoute
   '/news': typeof AdminNewsRoute
   '/stocks': typeof AdminStocksRoute
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/_admin': typeof AdminRouteWithChildren
   '/about': typeof AboutRoute
   '/not_authorized': typeof Not_authorizedRoute
+  '/_admin/ipos': typeof AdminIposRoute
   '/_admin/market': typeof AdminMarketRoute
   '/_admin/news': typeof AdminNewsRoute
   '/_admin/stocks': typeof AdminStocksRoute
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/not_authorized'
+    | '/ipos'
     | '/market'
     | '/news'
     | '/stocks'
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/not_authorized'
+    | '/ipos'
     | '/market'
     | '/news'
     | '/stocks'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/_admin'
     | '/about'
     | '/not_authorized'
+    | '/_admin/ipos'
     | '/_admin/market'
     | '/_admin/news'
     | '/_admin/stocks'
@@ -235,6 +247,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMarketRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/ipos': {
+      id: '/_admin/ipos'
+      path: '/ipos'
+      fullPath: '/ipos'
+      preLoaderRoute: typeof AdminIposRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/stock/$id': {
       id: '/_admin/stock/$id'
       path: '/stock/$id'
@@ -246,6 +265,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminIposRoute: typeof AdminIposRoute
   AdminMarketRoute: typeof AdminMarketRoute
   AdminNewsRoute: typeof AdminNewsRoute
   AdminStocksRoute: typeof AdminStocksRoute
@@ -254,6 +274,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminIposRoute: AdminIposRoute,
   AdminMarketRoute: AdminMarketRoute,
   AdminNewsRoute: AdminNewsRoute,
   AdminStocksRoute: AdminStocksRoute,
