@@ -55,17 +55,17 @@ type NewsFormState = {
 	title: string;
 	content: string;
 	releaseAfterMinutes: string;
-	affectedSectorsText: string;
+	affectedStocksText: string;
 };
 
 const EMPTY_FORM: NewsFormState = {
 	title: "",
 	content: "",
 	releaseAfterMinutes: "",
-	affectedSectorsText: "",
+	affectedStocksText: "",
 };
 
-function parseAffectedSectors(input: string): Record<string, number> {
+function parseAffectedStocks(input: string): Record<string, number> {
 	const trimmed = input.trim();
 	if (!trimmed) {
 		return {};
@@ -76,7 +76,7 @@ function parseAffectedSectors(input: string): Record<string, number> {
 		parsedJson = JSON.parse(trimmed);
 	} catch {
 		throw new Error(
-			'Affected sectors must be a valid JSON object, e.g. {"Tech": 1.5, "Banking": -0.8}',
+			'Affected stocks must be a valid JSON object, e.g. {"AAPL": 1.5, "MSFT": -0.8}',
 		);
 	}
 
@@ -85,22 +85,22 @@ function parseAffectedSectors(input: string): Record<string, number> {
 		typeof parsedJson !== "object" ||
 		Array.isArray(parsedJson)
 	) {
-		throw new Error("Affected sectors must be a JSON object.");
+		throw new Error("Affected stocks must be a JSON object.");
 	}
 
-	const affectedSectors: Record<string, number> = {};
-	for (const [sector, impactValue] of Object.entries(parsedJson)) {
+	const affectedStocks: Record<string, number> = {};
+	for (const [stockId, impactValue] of Object.entries(parsedJson)) {
 		const impact = Number(impactValue);
 		if (Number.isNaN(impact)) {
-			throw new Error(`Impact for ${sector} must be a valid number.`);
+			throw new Error(`Impact for ${stockId} must be a valid number.`);
 		}
-		affectedSectors[sector] = impact;
+		affectedStocks[stockId] = impact;
 	}
 
-	return affectedSectors;
+	return affectedStocks;
 }
 
-function formatAffectedSectors(affected: Record<string, number> | undefined) {
+function formatAffectedStocks(affected: Record<string, number> | undefined) {
 	if (!affected || Object.keys(affected).length === 0) {
 		return "{}";
 	}
@@ -162,7 +162,7 @@ function toNewsPayload(form: NewsFormState, releaseNow = false): NewsPayload {
 		content: form.content.trim(),
 		isReleased: releaseInfo.isReleased,
 		release_at: releaseInfo.releaseAt,
-		affected_sectors: parseAffectedSectors(form.affectedSectorsText),
+		affected_stocks: parseAffectedStocks(form.affectedStocksText),
 	};
 }
 
@@ -272,7 +272,7 @@ function RouteComponent() {
 			title: news.title,
 			content: news.content,
 			releaseAfterMinutes: "",
-			affectedSectorsText: formatAffectedSectors(news.affected_sectors),
+			affectedStocksText: formatAffectedStocks(news.affected_stocks),
 		});
 		setIsEditOpen(true);
 	};
@@ -296,11 +296,11 @@ function RouteComponent() {
 			cell: (info) => new Date(info.getValue<string>()).toLocaleString(),
 		},
 		{
-			id: "affectedSectors",
-			header: "Affected Sectors",
+			id: "affectedStocks",
+			header: "Affected Stocks",
 			cell: ({ row }) => {
-				const sectors = Object.keys(row.original.affected_sectors ?? {});
-				return sectors.length > 0 ? `${sectors.length} sectors` : "None";
+				const stocks = Object.keys(row.original.affected_stocks ?? {});
+				return stocks.length > 0 ? `${stocks.length} stocks` : "None";
 			},
 		},
 		{
@@ -433,7 +433,7 @@ function RouteComponent() {
 				<div>
 					<h1 className="text-2xl font-bold">News Admin Dashboard</h1>
 					<p className="text-sm text-muted-foreground">
-						Manage published news updates and sector impact metadata.
+						Manage published news updates and stock impact metadata.
 					</p>
 				</div>
 				<Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
@@ -447,8 +447,8 @@ function RouteComponent() {
 						<DialogHeader>
 							<DialogTitle>Add News</DialogTitle>
 							<DialogDescription>
-								Create a new news item and define affected sectors as
-								comma-separated pairs.
+								Create a new news item and define affected stocks as a JSON
+								object.
 							</DialogDescription>
 						</DialogHeader>
 						<FieldGroup>
@@ -491,15 +491,15 @@ function RouteComponent() {
 								<FieldDescription>{addReleasePreview}</FieldDescription>
 							</Field>
 							<Field>
-								<FieldLabel>Affected Sectors (JSON)</FieldLabel>
+								<FieldLabel>Affected Stocks (JSON)</FieldLabel>
 								<Textarea
 									rows={4}
-									placeholder='{"Tech": 1.2, "Banking": -0.8}'
-									value={addForm.affectedSectorsText}
+									placeholder='{"AAPL": 1.2, "MSFT": -0.8}'
+									value={addForm.affectedStocksText}
 									onChange={(e) =>
 										setAddForm((prev) => ({
 											...prev,
-											affectedSectorsText: e.target.value,
+											affectedStocksText: e.target.value,
 										}))
 									}
 								/>
@@ -616,7 +616,7 @@ function RouteComponent() {
 					<DialogHeader>
 						<DialogTitle>Update News</DialogTitle>
 						<DialogDescription>
-							Update title, content, release time, and affected sector impacts.
+							Update title, content, release time, and affected stock impacts.
 						</DialogDescription>
 					</DialogHeader>
 					<FieldGroup>
@@ -659,15 +659,15 @@ function RouteComponent() {
 							<FieldDescription>{editReleasePreview}</FieldDescription>
 						</Field>
 						<Field>
-							<FieldLabel>Affected Sectors (JSON)</FieldLabel>
+							<FieldLabel>Affected Stocks (JSON)</FieldLabel>
 							<Textarea
 								rows={4}
-								placeholder='{"Tech": 1.2, "Banking": -0.8}'
-								value={editForm.affectedSectorsText}
+								placeholder='{"AAPL": 1.2, "MSFT": -0.8}'
+								value={editForm.affectedStocksText}
 								onChange={(e) =>
 									setEditForm((prev) => ({
 										...prev,
-										affectedSectorsText: e.target.value,
+										affectedStocksText: e.target.value,
 									}))
 								}
 							/>
@@ -700,9 +700,9 @@ function RouteComponent() {
 
 			{newsRows.length > 0 && (
 				<div className="mt-4 flex flex-wrap gap-2">
-					{Object.keys(newsRows[0].affected_sectors ?? {}).map((sector) => (
-						<Badge key={sector} variant="secondary">
-							{sector}
+					{Object.keys(newsRows[0].affected_stocks ?? {}).map((stockId) => (
+						<Badge key={stockId} variant="secondary">
+							{stockId}
 						</Badge>
 					))}
 				</div>
