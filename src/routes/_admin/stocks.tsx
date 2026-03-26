@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	type ColumnDef,
@@ -16,7 +16,7 @@ import {
 	MoreVertical,
 	Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
 	addStock,
@@ -67,14 +67,56 @@ import {
 	TableHeader,
 	TableRow,
 } from "#/components/ui/table";
-import type { Stock } from "#/types/stock";
+import useSocket from "#/hooks/use-socket";
+import type { Stock, StockOHLC } from "#/types/stock";
 
 export const Route = createFileRoute("/_admin/stocks")({
 	component: RouteComponent,
 });
 
+type StockRow = Stock & {
+	price: number;
+	indicator?: "up" | "down" | "neutral";
+};
+
 function RouteComponent() {
-	const columns: ColumnDef<Stock & { price: number }>[] = [
+	const queryClient = useQueryClient();
+	const socket = useSocket();
+
+	useEffect(() => {
+		if (!socket) return;
+
+		const handlePriceUpdate = (data: StockOHLC) => {
+			queryClient.setQueryData(
+				["stocks"],
+				(oldData: StockRow[] | undefined) => {
+					if (!oldData) return oldData;
+					return oldData.map((stock) => {
+						if (stock.id === data.stock_id) {
+							const newPrice = data.close_price;
+							const oldPrice = stock.price;
+							let indicator = stock.indicator;
+
+							if (newPrice > oldPrice) indicator = "up";
+							else if (newPrice < oldPrice) indicator = "down";
+							// if equal, keep the previous indicator entirely to retain momentum coloring
+
+							return { ...stock, price: newPrice, indicator };
+						}
+						return stock;
+					});
+				},
+			);
+		};
+
+		socket.on("stockPriceUpdate", handlePriceUpdate);
+
+		return () => {
+			socket.off("stockPriceUpdate", handlePriceUpdate);
+		};
+	}, [socket, queryClient]);
+
+	const columns: ColumnDef<StockRow>[] = [
 		{
 			id: "select",
 			header: ({ table }) => (
@@ -124,6 +166,22 @@ function RouteComponent() {
 					)}
 				</Button>
 			),
+			cell: ({ row }) => {
+				const price = row.original.price;
+				const indicator = row.original.indicator;
+				return (
+					<div className="flex items-center gap-2 px-4 font-mono">
+						<span>₹{Number(price)?.toFixed(2) ?? "0.00"}</span>
+						{indicator === "up" && (
+							<ArrowUp className="h-4 w-4 text-green-500" />
+						)}
+						{indicator === "down" && (
+							<ArrowDown className="h-4 w-4 text-red-500" />
+						)}
+						{!indicator && <span className="w-4 h-4 inline-block" />}
+					</div>
+				);
+			},
 			enableSorting: true,
 		},
 		{

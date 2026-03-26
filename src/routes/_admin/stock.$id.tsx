@@ -21,7 +21,7 @@ import {
 	TrendingUp,
 	TrendingUpDown,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
 	addStockOhlc,
@@ -31,6 +31,7 @@ import {
 	getStockPrice,
 	updateStock,
 } from "#/api/stocks";
+import StockCurrentPrice from "#/components/current-price";
 import TVChart from "#/components/tv-chart";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -72,30 +73,13 @@ import {
 	TableHeader,
 	TableRow,
 } from "#/components/ui/table";
+import useSocket from "#/hooks/use-socket";
 import type { StockOHLC } from "#/types/stock";
 
 export const Route = createFileRoute("/_admin/stock/$id")({
 	component: RouteComponent,
 });
 
-function formatCurrency(value?: number | null) {
-	if (value === null || value === undefined || Number.isNaN(value)) {
-		return "-";
-	}
-
-	return value.toLocaleString("en-IN", {
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	});
-}
-
-function formatPercent(value?: number | null) {
-	if (value === null || value === undefined || Number.isNaN(value)) {
-		return "-";
-	}
-
-	return `${value.toFixed(2)}%`;
-}
 
 function RouteComponent() {
 	const { id } = Route.useParams();
@@ -104,15 +88,7 @@ function RouteComponent() {
 		queryKey: ["stock", id],
 		queryFn: () => (id ? getStock(id) : Promise.resolve(null)),
 	});
-	const stockCurrentPrice = useQuery({
-		queryKey: ["stock", id, "currentPrice"],
-		queryFn: () => (id ? getStockPrice(id, true) : Promise.resolve(null)),
-	});
-	const stockOhlc = useQuery({
-		queryKey: ["stock", id, "ohlc"],
-		queryFn: () => (id ? getStockOhlc(id) : Promise.resolve(null)),
-	});
-
+	
 	const [sorting, setSorting] = useState<SortingState>([]);
 	const columns: ColumnDef<StockOHLC>[] = [
 		{
@@ -177,20 +153,9 @@ function RouteComponent() {
 			accessorKey: "close_price",
 		},
 	];
-
-	const table = useReactTable({
-		data: stockOhlc.data || [],
-		columns,
-		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
-		state: {
-			sorting,
-		},
-		onSortingChange: setSorting,
-	});
-
+	
 	const [isAddRecordDialogOpen, setIsAddRecordDialogOpen] = useState(false);
-
+	
 	const addRecordFormOptions = formOptions({
 		defaultValues: {
 			open_price: 0,
@@ -199,6 +164,7 @@ function RouteComponent() {
 			close_price: 0,
 		} as StockOHLC,
 	});
+
 	const addRecordForm = useForm({
 		...addRecordFormOptions,
 		onSubmit: async ({ value }) => {
@@ -220,7 +186,7 @@ function RouteComponent() {
 			}
 		},
 	});
-
+	
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 	const allSectors = useQuery({
 		queryKey: ["sectors"],
@@ -261,16 +227,7 @@ function RouteComponent() {
 			}
 		},
 	});
-
-	const currentPrice = stockCurrentPrice.data?.price ?? null;
-	const currentPriceChange = stockCurrentPrice.data?.priceChange ?? null;
-	const currentPriceChangePercent =
-		currentPrice !== null &&
-		currentPriceChange !== null &&
-		currentPrice - currentPriceChange !== 0
-			? (currentPriceChange / (currentPrice - currentPriceChange)) * 100
-			: null;
-
+	
 	if (stock.isLoading) {
 		return (
 			<div className="p-4">
@@ -296,47 +253,7 @@ function RouteComponent() {
 						<Badge variant="default">{stock.data?.symbol}</Badge>
 					</div>
 				</div>
-				<div className="rounded-xl bg-secondary p-4">
-					<div className="text-xs uppercase tracking-wide text-muted-foreground">
-						Current Price
-					</div>
-					{stockCurrentPrice.isLoading ? (
-						<Skeleton className="mt-2 h-8 w-40" />
-					) : stockCurrentPrice.data?.price ? (
-						<div className="mt-2 flex flex-col gap-1">
-							<div className="flex items-center gap-1 text-3xl font-semibold leading-none">
-								<IndianRupee />
-								<span>{formatCurrency(currentPrice)}</span>
-							</div>
-							<div className="flex items-center gap-2 text-sm">
-								<Badge
-									variant={
-										stockCurrentPrice.data?.indicator === "down"
-											? "destructive"
-											: "secondary"
-									}
-								>
-									{stockCurrentPrice.data?.indicator === "down" ? (
-										<TrendingDown className="size-4" />
-									) : stockCurrentPrice.data?.indicator === "up" ? (
-										<TrendingUp className="size-4" />
-									) : (
-										<TrendingUpDown className="size-4" />
-									)}
-									{formatCurrency(currentPriceChange)}
-								</Badge>
-								<span className="text-muted-foreground">
-									{formatPercent(currentPriceChangePercent)}
-								</span>
-							</div>
-						</div>
-					) : (
-						<div className="mt-2 text-3xl font-semibold leading-none">
-							<IndianRupee />
-							<span>-</span>
-						</div>
-					)}
-				</div>
+				<StockCurrentPrice stockId={String(stock.data?.id) || ""} />
 			</div>
 			<div className="flex items-stretch gap-4 mb-4">
 				<div className="rounded-md bg-secondary p-4 w-full">
@@ -369,22 +286,13 @@ function RouteComponent() {
 					</Button>
 				</div>
 			</div>
-			{stockOhlc.isPending ? (
-				<div className="flex h-96 w-full items-center justify-center bg-muted rounded-lg">
-					<Spinner />
-				</div>
-			) : (
-				stockOhlc.data && (
-					<div className="w-full">
-						<TVChart candleStickData={stockOhlc.data} />
-						<FieldDescription className="mt-2 ml-2">
-							The chart above shows the historical price data for this stock,
-							including the open, high, low, and close prices for each time
-							period.
-						</FieldDescription>
-					</div>
-				)
-			)}
+			<div className="w-full">
+				<TVChart stockId={String(stock.data?.id) || ""} />
+				<FieldDescription className="mt-2 ml-2">
+					The chart above shows the historical price data for this stock,
+					including the open, high, low, and close prices for each time period.
+				</FieldDescription>
+			</div>
 
 			<div className="mt-8">
 				<div className="flex items-center justify-between mb-4">
@@ -393,7 +301,11 @@ function RouteComponent() {
 						Add Record <Plus />
 					</Button>
 				</div>
-				<div className="rounded-md border overflow-x-auto">
+				Working on the table to display OHLC records in a tabular format with
+				sorting and pagination features. For now, you can add new OHLC records
+				using the "Add Record" button above, which will update the chart
+				accordingly.
+				{/* <div className="rounded-md border overflow-x-auto">
 					<Table>
 						<TableHeader>
 							{table.getHeaderGroups().map((headerGroup) => (
@@ -428,7 +340,7 @@ function RouteComponent() {
 							))}
 						</TableBody>
 					</Table>
-				</div>
+				</div> */}
 			</div>
 			<Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
 				{/* Implement the dialog for editing stock details here */}
