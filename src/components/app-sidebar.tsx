@@ -17,7 +17,6 @@ import {
 	SidebarHeader,
 	SidebarRail,
 } from "#/components/ui/sidebar";
-import { ModeToggle } from "./mode-toggle";
 import { NavUser } from "./nav-user";
 
 // This is sample data.
@@ -65,7 +64,11 @@ const data = {
 
 export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
 	return (
-		<Sidebar collapsible="icon" {...props}>
+		<Sidebar
+			className="top-(--header-height) h-[calc(100svh-var(--header-height))]!"
+			collapsible="icon"
+			{...props}
+		>
 			<SidebarHeader>
 				<TeamSwitcher teams={data.teams} />
 			</SidebarHeader>
@@ -73,7 +76,6 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
 				<NavProjects projects={data.projects} />
 			</SidebarContent>
 			<SidebarFooter>
-				<ModeToggle />
 				<NavUser />
 			</SidebarFooter>
 			<SidebarRail />

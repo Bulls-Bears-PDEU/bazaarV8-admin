@@ -55,6 +55,7 @@ import {
 	SelectValue,
 } from "#/components/ui/select";
 import { Spinner } from "#/components/ui/spinner";
+import { Loading } from "#/components/ui/loading";
 import {
 	Table,
 	TableBody,
@@ -551,10 +552,7 @@ function RouteComponent() {
 
 	if (users.isPending) {
 		return (
-			<div className="flex h-full w-full items-center justify-center">
-				<Spinner className="mr-2" />
-				<span>Loading users...</span>
-			</div>
+			<Loading text="Loading users..." />
 		);
 	}
 
@@ -670,3 +668,5 @@ function RouteComponent() {
 		</div>
 	);
 }
+
+

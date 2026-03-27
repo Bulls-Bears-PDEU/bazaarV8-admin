@@ -53,6 +53,7 @@ import {
 	SelectValue,
 } from "#/components/ui/select";
 import { Spinner } from "#/components/ui/spinner";
+import { Loading } from "#/components/ui/loading";
 import {
 	Table,
 	TableBody,
@@ -494,7 +495,7 @@ function RouteComponent() {
 	const sectorItems = sectors.data ?? [];
 
 	if (iposQuery.isLoading) {
-		return <div className="p-4">Loading IPOs...</div>;
+		return <Loading text="Loading IPOs..." />;
 	}
 
 	if (iposQuery.isError) {
@@ -968,3 +969,5 @@ function RouteComponent() {
 		</div>
 	);
 }
+
+

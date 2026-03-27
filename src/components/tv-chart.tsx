@@ -10,6 +10,7 @@ import { useEffect, useRef } from "react";
 import { getStockOhlc } from "#/api/stocks";
 import useSocket from "#/hooks/use-socket";
 import type { StockOHLC } from "#/types/stock";
+import { Spinner } from "./ui/spinner";
 
 const TVChart = ({ stockId }: { stockId: string }) => {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -33,6 +34,7 @@ const TVChart = ({ stockId }: { stockId: string }) => {
 					color: "oklch(0.274 0.006 286.033)",
 				},
 				textColor: "white",
+				fontFamily: "DM Mono, monospace",
 			},
 			height: 400,
 			grid: {
@@ -46,13 +48,24 @@ const TVChart = ({ stockId }: { stockId: string }) => {
 				},
 			},
 			crosshair: {
-				mode: CrosshairMode.Normal,
+				mode: CrosshairMode.MagnetOHLC,
 			},
 		});
 		const candleSeries = chart.addSeries(CandlestickSeries);
 		chart.applyOptions({
 			rightPriceScale: {
 				autoScale: true,
+			},
+		});
+		const inrCurrencyFormatter = new Intl.NumberFormat("en-IN", {
+			style: "currency",
+			currency: "INR",
+			minimumFractionDigits: 2,
+			maximumFractionDigits: 2,
+		}).format;
+		chart.applyOptions({
+			localization: {
+				priceFormatter: inrCurrencyFormatter,
 			},
 		});
 		chart.applyOptions({
@@ -71,6 +84,16 @@ const TVChart = ({ stockId }: { stockId: string }) => {
 				close: Number(ohlc.close_price),
 			})),
 		);
+
+		candleSeries.priceScale().applyOptions({
+			autoScale: false,
+			scaleMargins: {
+				top: 0.1,
+				bottom: 0.1,
+			},
+		});
+
+		chart.timeScale().fitContent();
 
 		socket.on("stockPriceUpdate", (data: StockOHLC) => {
 			console.log("Received stockPriceUpdate:", data);
@@ -96,7 +119,13 @@ const TVChart = ({ stockId }: { stockId: string }) => {
 		<div
 			ref={chartContainerRef}
 			className="w-full h-full rounded-lg overflow-hidden"
-		></div>
+		>
+			{stockOhlc.isLoading && (
+				<div className="flex items-center justify-center h-100 bg-secondary rounded-lg">
+					<Spinner />
+				</div>
+			)}
+		</div>
 	);
 };
 

@@ -16,7 +16,9 @@ import {
 	EmptyHeader,
 	EmptyTitle,
 } from "#/components/ui/empty";
+import { Loading } from "#/components/ui/loading";
 export const Route = createRootRoute({
+	pendingComponent: () => <Loading fullScreen />,
 	component: RootComponent,
 	notFoundComponent: () => (
 		<Empty className="h-screen">
@@ -63,3 +65,4 @@ function RootComponent() {
 		</>
 	);
 }
+

@@ -32,6 +32,7 @@ import {
 	updateStock,
 } from "#/api/stocks";
 import StockCurrentPrice from "#/components/current-price";
+import StockOhlcTable from "#/components/stock-ohlc-table";
 import TVChart from "#/components/tv-chart";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -54,6 +55,7 @@ import {
 	FieldSet,
 } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
+import { Loading } from "#/components/ui/loading";
 import {
 	Select,
 	SelectContent,
@@ -88,71 +90,6 @@ function RouteComponent() {
 		queryKey: ["stock", id],
 		queryFn: () => (id ? getStock(id) : Promise.resolve(null)),
 	});
-	
-	const [sorting, setSorting] = useState<SortingState>([]);
-	const columns: ColumnDef<StockOHLC>[] = [
-		{
-			id: "select",
-			header: ({ table }) => (
-				<Checkbox
-					checked={
-						table.getIsAllPageRowsSelected() ||
-						(table.getIsSomePageRowsSelected() && "indeterminate")
-					}
-					onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-					aria-label="Select all"
-				/>
-			),
-			cell: ({ row }) => (
-				<Checkbox
-					checked={row.getIsSelected()}
-					onCheckedChange={(value) => row.toggleSelected(!!value)}
-					aria-label="Select row"
-				/>
-			),
-		},
-		{
-			header: ({ column }) => (
-				<Button variant="ghost" onClick={column.getToggleSortingHandler()}>
-					Timestamp
-					{column.getIsSorted() === "asc" ? (
-						<ArrowUp className="ml-4 h-4 w-4" />
-					) : column.getIsSorted() === "desc" ? (
-						<ArrowDown className="ml-4 h-4 w-4" />
-					) : (
-						<ArrowDownUp className="ml-4 h-4 w-4" />
-					)}
-				</Button>
-			),
-			accessorKey: "timestamp",
-			// display: HH:MM:SS:MS format of the timestamp
-			cell: ({ row }) =>
-				new Date(row.original.timestamp).toLocaleTimeString("en-US", {
-					hour: "2-digit",
-					minute: "2-digit",
-					second: "2-digit",
-					fractionalSecondDigits: 3,
-				}),
-			enableSorting: true,
-			sortDescFirst: true,
-		},
-		{
-			header: "Open Price",
-			accessorKey: "open_price",
-		},
-		{
-			header: "High Price",
-			accessorKey: "high_price",
-		},
-		{
-			header: "Low Price",
-			accessorKey: "low_price",
-		},
-		{
-			header: "Close Price",
-			accessorKey: "close_price",
-		},
-	];
 	
 	const [isAddRecordDialogOpen, setIsAddRecordDialogOpen] = useState(false);
 	
@@ -229,20 +166,10 @@ function RouteComponent() {
 	});
 	
 	if (stock.isLoading) {
-		return (
-			<div className="p-4">
-				<div className="rounded-2xl border bg-card p-6">
-					<div className="flex flex-col gap-4">
-						<Skeleton className="h-8 w-48" />
-						<Skeleton className="h-24 w-full" />
-						<Skeleton className="h-64 w-full" />
-					</div>
-				</div>
-			</div>
-		);
+		return <Loading text="Loading stock..." />;
 	}
 	return (
-		<div className="p-4">
+		<div className="p-4 w-full max-w-full overflow-hidden">
 			<div className="flex items-center justify-between mb-4">
 				<div className="flex items-center gap-4">
 					<Landmark className="p-4 bg-indigo-900 size-20 rounded-md" />
@@ -294,53 +221,14 @@ function RouteComponent() {
 				</FieldDescription>
 			</div>
 
-			<div className="mt-8">
+			<div className="mt-8 max-w-full">
 				<div className="flex items-center justify-between mb-4">
 					<h2 className="text-2xl font-bold">Historical Price Data</h2>
 					<Button size="lg" onClick={() => setIsAddRecordDialogOpen(true)}>
 						Add Record <Plus />
 					</Button>
 				</div>
-				Working on the table to display OHLC records in a tabular format with
-				sorting and pagination features. For now, you can add new OHLC records
-				using the "Add Record" button above, which will update the chart
-				accordingly.
-				{/* <div className="rounded-md border overflow-x-auto">
-					<Table>
-						<TableHeader>
-							{table.getHeaderGroups().map((headerGroup) => (
-								<TableRow key={headerGroup.id}>
-									{headerGroup.headers.map((header) =>
-										header.isPlaceholder ? null : (
-											<TableHead key={header.id} className="select-none ">
-												<div className="flex items-center justify-between gap-1">
-													{flexRender(
-														header.column.columnDef.header,
-														header.getContext(),
-													)}
-												</div>
-											</TableHead>
-										),
-									)}
-								</TableRow>
-							))}
-						</TableHeader>
-						<TableBody>
-							{table.getRowModel().rows.map((row) => (
-								<TableRow key={row.id}>
-									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id}>
-											{flexRender(
-												cell.column.columnDef.cell,
-												cell.getContext(),
-											)}
-										</TableCell>
-									))}
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</div> */}
+				<StockOhlcTable stockId={String(stock.data?.id) || ""} />
 			</div>
 			<Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
 				{/* Implement the dialog for editing stock details here */}

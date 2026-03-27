@@ -6,6 +6,7 @@ import {
 	flexRender,
 	getCoreRowModel,
 	getSortedRowModel,
+	type Row,
 	type SortingState,
 	useReactTable,
 } from "@tanstack/react-table";
@@ -16,7 +17,7 @@ import {
 	MoreVertical,
 	Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
 	addStock,
@@ -50,6 +51,7 @@ import {
 	FieldSet,
 } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
+import { Loading } from "#/components/ui/loading";
 import {
 	Select,
 	SelectContent,
@@ -78,6 +80,26 @@ type StockRow = Stock & {
 	price: number;
 	indicator?: "up" | "down" | "neutral";
 };
+
+const MemoizedRow = memo(
+	({ row }: { row: Row<StockRow> }) => {
+		return (
+			<TableRow>
+				{row.getVisibleCells().map((cell) => (
+					<TableCell key={cell.id}>
+						{flexRender(cell.column.columnDef.cell, cell.getContext())}
+					</TableCell>
+				))}
+			</TableRow>
+		);
+	},
+	(prev, next) => {
+		return (
+			prev.row.original === next.row.original &&
+			prev.row.getIsSelected() === next.row.getIsSelected()
+		);
+	},
+);
 
 function RouteComponent() {
 	const queryClient = useQueryClient();
@@ -116,114 +138,122 @@ function RouteComponent() {
 		};
 	}, [socket, queryClient]);
 
-	const columns: ColumnDef<StockRow>[] = [
-		{
-			id: "select",
-			header: ({ table }) => (
-				<Checkbox
-					checked={
-						table.getIsAllPageRowsSelected() ||
-						(table.getIsSomePageRowsSelected() && "indeterminate")
-					}
-					onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-					aria-label="Select all"
-				/>
-			),
-			cell: ({ row }) => (
-				<Checkbox
-					checked={row.getIsSelected()}
-					onCheckedChange={(value) => row.toggleSelected(!!value)}
-					aria-label="Select row"
-				/>
-			),
-		},
-		{
-			accessorKey: "id",
-			header: "ID",
-		},
-		{
-			accessorKey: "symbol",
-			header: "Symbol",
-		},
-		{
-			accessorKey: "name",
-			header: "Name",
-		},
-		{
-			accessorKey: "price",
-			header: ({ column }) => (
-				<Button
-					variant="ghost"
-					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-				>
-					Price
-					{column.getIsSorted() === "asc" ? (
-						<ArrowUp className="ml-4 h-4 w-4" />
-					) : column.getIsSorted() === "desc" ? (
-						<ArrowDown className="ml-4 h-4 w-4" />
-					) : (
-						<ArrowDownUp className="ml-4 h-4 w-4" />
-					)}
-				</Button>
-			),
-			cell: ({ row }) => {
-				const price = row.original.price;
-				const indicator = row.original.indicator;
-				return (
-					<div className="flex items-center gap-2 px-4 font-mono">
-						<span>₹{Number(price)?.toFixed(2) ?? "0.00"}</span>
-						{indicator === "up" && (
-							<ArrowUp className="h-4 w-4 text-green-500" />
-						)}
-						{indicator === "down" && (
-							<ArrowDown className="h-4 w-4 text-red-500" />
-						)}
-						{!indicator && <span className="w-4 h-4 inline-block" />}
-					</div>
-				);
+	const columns = useMemo<ColumnDef<StockRow>[]>(
+		() => [
+			{
+				id: "select",
+				header: ({ table }) => (
+					<Checkbox
+						checked={
+							table.getIsAllPageRowsSelected() ||
+							(table.getIsSomePageRowsSelected() && "indeterminate")
+						}
+						onCheckedChange={(value) =>
+							table.toggleAllPageRowsSelected(!!value)
+						}
+						aria-label="Select all"
+					/>
+				),
+				cell: ({ row }) => (
+					<Checkbox
+						checked={row.getIsSelected()}
+						onCheckedChange={(value) => row.toggleSelected(!!value)}
+						aria-label="Select row"
+					/>
+				),
 			},
-			enableSorting: true,
-		},
-		{
-			accessorKey: "volatility",
-			header: "Volatility",
-		},
-		{
-			accessorKey: "sector",
-			header: "Sector",
-		},
-		{
-			accessorKey: "created_at",
-			header: "Created At",
-			cell: (info) => new Date(info.getValue() as string).toLocaleString(),
-		},
-		{
-			accessorKey: "isLocked",
-			header: "Is Locked",
-			cell: (info) => (info.getValue() ? "Yes" : "No"),
-		},
-		{
-			accessorKey: "actions",
-			header: "",
-			cell: (info) => (
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button variant="ghost" size="icon">
-							<MoreVertical />
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<Link to="/stock/$id" params={{ id: String(info.row.original.id) }}>
-							<DropdownMenuItem>Edit</DropdownMenuItem>
-						</Link>
-						<DropdownMenuItem disabled>Delete</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
-			),
-			enableSorting: false,
-			enableColumnFilter: false,
-		},
-	];
+			{
+				accessorKey: "id",
+				header: "ID",
+			},
+			{
+				accessorKey: "symbol",
+				header: "Symbol",
+			},
+			{
+				accessorKey: "name",
+				header: "Name",
+			},
+			{
+				accessorKey: "price",
+				header: ({ column }) => (
+					<Button
+						variant="ghost"
+						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+					>
+						Price
+						{column.getIsSorted() === "asc" ? (
+							<ArrowUp className="ml-4 h-4 w-4" />
+						) : column.getIsSorted() === "desc" ? (
+							<ArrowDown className="ml-4 h-4 w-4" />
+						) : (
+							<ArrowDownUp className="ml-4 h-4 w-4" />
+						)}
+					</Button>
+				),
+				cell: ({ row }) => {
+					const price = row.original.price;
+					const indicator = row.original.indicator;
+					return (
+						<div className="flex items-center gap-2 px-4 font-mono">
+							<span>₹{Number(price)?.toFixed(2) ?? "0.00"}</span>
+							{indicator === "up" && (
+								<ArrowUp className="h-4 w-4 text-green-500" />
+							)}
+							{indicator === "down" && (
+								<ArrowDown className="h-4 w-4 text-red-500" />
+							)}
+							{!indicator && <span className="w-4 h-4 inline-block" />}
+						</div>
+					);
+				},
+				enableSorting: true,
+			},
+			{
+				accessorKey: "volatility",
+				header: "Volatility",
+			},
+			{
+				accessorKey: "sector",
+				header: "Sector",
+			},
+			{
+				accessorKey: "created_at",
+				header: "Created At",
+				cell: (info) => new Date(info.getValue() as string).toLocaleString(),
+			},
+			{
+				accessorKey: "isLocked",
+				header: "Is Locked",
+				cell: (info) => (info.getValue() ? "Yes" : "No"),
+			},
+			{
+				accessorKey: "actions",
+				header: "",
+				cell: (info) => (
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button variant="ghost" size="icon">
+								<MoreVertical />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<Link
+								to="/stock/$id"
+								params={{ id: String(info.row.original.id) }}
+							>
+								<DropdownMenuItem>Edit</DropdownMenuItem>
+							</Link>
+							<DropdownMenuItem disabled>Delete</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				),
+				enableSorting: false,
+				enableColumnFilter: false,
+			},
+		],
+		[],
+	);
 
 	const stocks = useQuery({
 		queryKey: ["stocks"],
@@ -249,6 +279,7 @@ function RouteComponent() {
 	const table = useReactTable({
 		columns,
 		data: stocks.data || [],
+		getRowId: (row) => String(row.id),
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
 		onSortingChange: setSorting,
@@ -299,7 +330,7 @@ function RouteComponent() {
 	});
 
 	if (stocks.isLoading) {
-		return <div>Loading stocks...</div>;
+		return <Loading text="Loading stocks..." />;
 	}
 
 	if (stocks.isError) {
@@ -473,16 +504,7 @@ function RouteComponent() {
 						</TableHeader>
 						<TableBody>
 							{table.getRowModel().rows.map((row) => (
-								<TableRow key={row.id}>
-									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id}>
-											{flexRender(
-												cell.column.columnDef.cell,
-												cell.getContext(),
-											)}
-										</TableCell>
-									))}
-								</TableRow>
+								<MemoizedRow key={row.id} row={row} />
 							))}
 						</TableBody>
 					</Table>

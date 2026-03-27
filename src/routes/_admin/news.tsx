@@ -36,6 +36,7 @@ import {
 } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import { Spinner } from "#/components/ui/spinner";
+import { Loading } from "#/components/ui/loading";
 import {
 	Table,
 	TableBody,
@@ -420,7 +421,7 @@ function RouteComponent() {
 	const editReleasePreview = getReleasePreview(editForm.releaseAfterMinutes);
 
 	if (newsQuery.isLoading) {
-		return <div className="p-4">Loading news...</div>;
+		return <Loading text="Loading news..." />;
 	}
 
 	if (newsQuery.isError) {
@@ -710,3 +711,5 @@ function RouteComponent() {
 		</div>
 	);
 }
+
+
