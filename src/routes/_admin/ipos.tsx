@@ -45,6 +45,7 @@ import {
 	FieldLabel,
 } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
+import { Loading } from "#/components/ui/loading";
 import {
 	Select,
 	SelectContent,
@@ -53,7 +54,6 @@ import {
 	SelectValue,
 } from "#/components/ui/select";
 import { Spinner } from "#/components/ui/spinner";
-import { Loading } from "#/components/ui/loading";
 import {
 	Table,
 	TableBody,
@@ -511,7 +511,7 @@ function RouteComponent() {
 						Manage Initial Public Offerings across all lifecycle stages.
 					</p>
 				</div>
-				<Dialog open={isAddOpen} onOpenChange={setIsAddOpen} modal={false}>
+				<Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
 					<DialogTrigger asChild>
 						<Button>
 							<Plus data-icon="inline-start" />

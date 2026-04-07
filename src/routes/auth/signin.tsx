@@ -6,9 +6,5 @@ export const Route = createFileRoute("/auth/signin")({
 });
 
 function RouteComponent() {
-	return (
-		<div className="flex h-screen w-full items-center justify-center">
-			<LoginForm className="w-[700px]" />
-		</div>
-	);
+	return <LoginForm />;
 }

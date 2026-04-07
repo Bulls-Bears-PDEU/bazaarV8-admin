@@ -15,10 +15,12 @@ import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AuthSigninRouteImport } from './routes/auth/signin'
+import { Route as AuthResetpasswordRouteImport } from './routes/auth/resetpassword'
 import { Route as AdminUsersRouteImport } from './routes/_admin/users'
 import { Route as AdminStocksRouteImport } from './routes/_admin/stocks'
 import { Route as AdminNewsRouteImport } from './routes/_admin/news'
 import { Route as AdminMarketRouteImport } from './routes/_admin/market'
+import { Route as AdminLeaderboardRouteImport } from './routes/_admin/leaderboard'
 import { Route as AdminIposRouteImport } from './routes/_admin/ipos'
 import { Route as AdminStockIdRouteImport } from './routes/_admin/stock.$id'
 
@@ -51,6 +53,11 @@ const AuthSigninRoute = AuthSigninRouteImport.update({
   path: '/auth/signin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthResetpasswordRoute = AuthResetpasswordRouteImport.update({
+  id: '/auth/resetpassword',
+  path: '/auth/resetpassword',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -71,6 +78,11 @@ const AdminMarketRoute = AdminMarketRouteImport.update({
   path: '/market',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminLeaderboardRoute = AdminLeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminIposRoute = AdminIposRouteImport.update({
   id: '/ipos',
   path: '/ipos',
@@ -87,10 +99,12 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/not_authorized': typeof Not_authorizedRoute
   '/ipos': typeof AdminIposRoute
+  '/leaderboard': typeof AdminLeaderboardRoute
   '/market': typeof AdminMarketRoute
   '/news': typeof AdminNewsRoute
   '/stocks': typeof AdminStocksRoute
   '/users': typeof AdminUsersRoute
+  '/auth/resetpassword': typeof AuthResetpasswordRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/signup': typeof AuthSignupRoute
   '/stock/$id': typeof AdminStockIdRoute
@@ -100,10 +114,12 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/not_authorized': typeof Not_authorizedRoute
   '/ipos': typeof AdminIposRoute
+  '/leaderboard': typeof AdminLeaderboardRoute
   '/market': typeof AdminMarketRoute
   '/news': typeof AdminNewsRoute
   '/stocks': typeof AdminStocksRoute
   '/users': typeof AdminUsersRoute
+  '/auth/resetpassword': typeof AuthResetpasswordRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/signup': typeof AuthSignupRoute
   '/stock/$id': typeof AdminStockIdRoute
@@ -115,10 +131,12 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/not_authorized': typeof Not_authorizedRoute
   '/_admin/ipos': typeof AdminIposRoute
+  '/_admin/leaderboard': typeof AdminLeaderboardRoute
   '/_admin/market': typeof AdminMarketRoute
   '/_admin/news': typeof AdminNewsRoute
   '/_admin/stocks': typeof AdminStocksRoute
   '/_admin/users': typeof AdminUsersRoute
+  '/auth/resetpassword': typeof AuthResetpasswordRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/signup': typeof AuthSignupRoute
   '/_admin/stock/$id': typeof AdminStockIdRoute
@@ -130,10 +148,12 @@ export interface FileRouteTypes {
     | '/about'
     | '/not_authorized'
     | '/ipos'
+    | '/leaderboard'
     | '/market'
     | '/news'
     | '/stocks'
     | '/users'
+    | '/auth/resetpassword'
     | '/auth/signin'
     | '/auth/signup'
     | '/stock/$id'
@@ -143,10 +163,12 @@ export interface FileRouteTypes {
     | '/about'
     | '/not_authorized'
     | '/ipos'
+    | '/leaderboard'
     | '/market'
     | '/news'
     | '/stocks'
     | '/users'
+    | '/auth/resetpassword'
     | '/auth/signin'
     | '/auth/signup'
     | '/stock/$id'
@@ -157,10 +179,12 @@ export interface FileRouteTypes {
     | '/about'
     | '/not_authorized'
     | '/_admin/ipos'
+    | '/_admin/leaderboard'
     | '/_admin/market'
     | '/_admin/news'
     | '/_admin/stocks'
     | '/_admin/users'
+    | '/auth/resetpassword'
     | '/auth/signin'
     | '/auth/signup'
     | '/_admin/stock/$id'
@@ -171,6 +195,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AboutRoute: typeof AboutRoute
   Not_authorizedRoute: typeof Not_authorizedRoute
+  AuthResetpasswordRoute: typeof AuthResetpasswordRoute
   AuthSigninRoute: typeof AuthSigninRoute
   AuthSignupRoute: typeof AuthSignupRoute
 }
@@ -219,6 +244,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSigninRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/resetpassword': {
+      id: '/auth/resetpassword'
+      path: '/auth/resetpassword'
+      fullPath: '/auth/resetpassword'
+      preLoaderRoute: typeof AuthResetpasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_admin/users': {
       id: '/_admin/users'
       path: '/users'
@@ -247,6 +279,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminMarketRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_admin/leaderboard': {
+      id: '/_admin/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof AdminLeaderboardRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_admin/ipos': {
       id: '/_admin/ipos'
       path: '/ipos'
@@ -266,6 +305,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminIposRoute: typeof AdminIposRoute
+  AdminLeaderboardRoute: typeof AdminLeaderboardRoute
   AdminMarketRoute: typeof AdminMarketRoute
   AdminNewsRoute: typeof AdminNewsRoute
   AdminStocksRoute: typeof AdminStocksRoute
@@ -275,6 +315,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminIposRoute: AdminIposRoute,
+  AdminLeaderboardRoute: AdminLeaderboardRoute,
   AdminMarketRoute: AdminMarketRoute,
   AdminNewsRoute: AdminNewsRoute,
   AdminStocksRoute: AdminStocksRoute,
@@ -289,6 +330,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AboutRoute: AboutRoute,
   Not_authorizedRoute: Not_authorizedRoute,
+  AuthResetpasswordRoute: AuthResetpasswordRoute,
   AuthSigninRoute: AuthSigninRoute,
   AuthSignupRoute: AuthSignupRoute,
 }
