@@ -1,12 +1,7 @@
 import { formOptions, useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-	type ColumnDef,
-	flexRender,
-	getCoreRowModel,
-	useReactTable,
-} from "@tanstack/react-table";
+import { type ColumnDef, flexRender, useTable } from "@tanstack/react-table";
 import { CheckCircle2, Plus, TrendingDown, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -62,6 +57,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "#/components/ui/table";
+import { type AdminTableFeatures, adminTableFeatures } from "#/lib/table";
 import type { Ipo, IpoStatus } from "#/types/ipo";
 
 export const Route = createFileRoute("/_admin/ipos")({
@@ -107,7 +103,7 @@ function IpoTable({
 		},
 	});
 
-	const columns: ColumnDef<Ipo>[] = [
+	const columns: ColumnDef<AdminTableFeatures, Ipo>[] = [
 		{
 			accessorKey: "symbol",
 			header: "Symbol",
@@ -285,10 +281,10 @@ function IpoTable({
 		},
 	];
 
-	const table = useReactTable({
+	const table = useTable({
+		features: adminTableFeatures,
 		data: ipos,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
 	});
 
 	return (
@@ -969,5 +965,3 @@ function RouteComponent() {
 		</div>
 	);
 }
-
-

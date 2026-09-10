@@ -4,11 +4,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	type ColumnDef,
 	flexRender,
-	getCoreRowModel,
-	getSortedRowModel,
 	type Row,
 	type SortingState,
-	useReactTable,
+	useTable,
 } from "@tanstack/react-table";
 import {
 	ArrowDown,
@@ -70,6 +68,7 @@ import {
 	TableRow,
 } from "#/components/ui/table";
 import useSocket from "#/hooks/use-socket";
+import { type AdminTableFeatures, adminTableFeatures } from "#/lib/table";
 import type { Stock, StockOHLC } from "#/types/stock";
 
 export const Route = createFileRoute("/_admin/stocks")({
@@ -82,7 +81,7 @@ type StockRow = Stock & {
 };
 
 const MemoizedRow = memo(
-	({ row }: { row: Row<StockRow> }) => {
+	({ row }: { row: Row<AdminTableFeatures, StockRow> }) => {
 		return (
 			<TableRow>
 				{row.getVisibleCells().map((cell) => (
@@ -138,7 +137,7 @@ function RouteComponent() {
 		};
 	}, [socket, queryClient]);
 
-	const columns = useMemo<ColumnDef<StockRow>[]>(
+	const columns = useMemo<ColumnDef<AdminTableFeatures, StockRow>[]>(
 		() => [
 			{
 				id: "select",
@@ -276,12 +275,11 @@ function RouteComponent() {
 	});
 	const [sorting, setSorting] = useState<SortingState>([]);
 	const [rowSelection, setRowSelection] = useState({});
-	const table = useReactTable({
+	const table = useTable({
+		features: adminTableFeatures,
 		columns,
 		data: stocks.data || [],
 		getRowId: (row) => String(row.id),
-		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
 		onSortingChange: setSorting,
 		onRowSelectionChange: setRowSelection,
 		state: {

@@ -3,10 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
 	type ColumnDef,
 	flexRender,
-	getCoreRowModel,
-	getSortedRowModel,
 	type SortingState,
-	useReactTable,
+	useTable,
 } from "@tanstack/react-table";
 import {
 	ArrowDown,
@@ -46,6 +44,7 @@ import {
 	FieldLabel,
 } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
+import { Loading } from "#/components/ui/loading";
 import {
 	Select,
 	SelectContent,
@@ -55,7 +54,6 @@ import {
 	SelectValue,
 } from "#/components/ui/select";
 import { Spinner } from "#/components/ui/spinner";
-import { Loading } from "#/components/ui/loading";
 import {
 	Table,
 	TableBody,
@@ -65,6 +63,7 @@ import {
 	TableRow,
 } from "#/components/ui/table";
 import { authClient } from "#/lib/auth-client";
+import { type AdminTableFeatures, adminTableFeatures } from "#/lib/table";
 
 export const Route = createFileRoute("/_admin/users")({
 	component: RouteComponent,
@@ -294,7 +293,7 @@ function RouteComponent() {
 	const userRows = users.data?.users ?? [];
 	const totalUsers = users.data?.total ?? userRows.length;
 
-	const columns: ColumnDef<AdminUser>[] = [
+	const columns: ColumnDef<AdminTableFeatures, AdminUser>[] = [
 		{
 			accessorKey: "name",
 			header: "Name",
@@ -541,19 +540,16 @@ function RouteComponent() {
 		},
 	];
 
-	const table = useReactTable({
+	const table = useTable({
+		features: adminTableFeatures,
 		columns,
 		data: userRows,
-		getCoreRowModel: getCoreRowModel(),
-		getSortedRowModel: getSortedRowModel(),
 		onSortingChange: setSorting,
 		state: { sorting },
 	});
 
 	if (users.isPending) {
-		return (
-			<Loading text="Loading users..." />
-		);
+		return <Loading text="Loading users..." />;
 	}
 
 	if (users.isError) {
@@ -668,5 +664,3 @@ function RouteComponent() {
 		</div>
 	);
 }
-
-

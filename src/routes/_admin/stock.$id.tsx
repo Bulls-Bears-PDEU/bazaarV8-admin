@@ -2,14 +2,6 @@ import { formOptions, useForm } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
-	type ColumnDef,
-	flexRender,
-	getCoreRowModel,
-	getSortedRowModel,
-	type SortingState,
-	useReactTable,
-} from "@tanstack/react-table";
-import {
 	ArrowDown,
 	ArrowDownUp,
 	ArrowUp,
@@ -82,7 +74,6 @@ export const Route = createFileRoute("/_admin/stock/$id")({
 	component: RouteComponent,
 });
 
-
 function RouteComponent() {
 	const { id } = Route.useParams();
 	const queryClient = useQueryClient();
@@ -90,9 +81,9 @@ function RouteComponent() {
 		queryKey: ["stock", id],
 		queryFn: () => (id ? getStock(id) : Promise.resolve(null)),
 	});
-	
+
 	const [isAddRecordDialogOpen, setIsAddRecordDialogOpen] = useState(false);
-	
+
 	const addRecordFormOptions = formOptions({
 		defaultValues: {
 			open_price: 0,
@@ -123,7 +114,7 @@ function RouteComponent() {
 			}
 		},
 	});
-	
+
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 	const allSectors = useQuery({
 		queryKey: ["sectors"],
@@ -164,7 +155,7 @@ function RouteComponent() {
 			}
 		},
 	});
-	
+
 	if (stock.isLoading) {
 		return <Loading text="Loading stock..." />;
 	}

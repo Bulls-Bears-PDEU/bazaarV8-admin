@@ -1,11 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-	type ColumnDef,
-	flexRender,
-	getCoreRowModel,
-	useReactTable,
-} from "@tanstack/react-table";
+import { type ColumnDef, flexRender, useTable } from "@tanstack/react-table";
 import { EyeOff, PencilLine, Plus, Send } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -35,8 +30,8 @@ import {
 	FieldLabel,
 } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
-import { Spinner } from "#/components/ui/spinner";
 import { Loading } from "#/components/ui/loading";
+import { Spinner } from "#/components/ui/spinner";
 import {
 	Table,
 	TableBody,
@@ -46,6 +41,7 @@ import {
 	TableRow,
 } from "#/components/ui/table";
 import { Textarea } from "#/components/ui/textarea";
+import { type AdminTableFeatures, adminTableFeatures } from "#/lib/table";
 import type { News } from "#/types/news";
 
 export const Route = createFileRoute("/_admin/news")({
@@ -278,7 +274,7 @@ function RouteComponent() {
 		setIsEditOpen(true);
 	};
 
-	const columns: ColumnDef<News>[] = [
+	const columns: ColumnDef<AdminTableFeatures, News>[] = [
 		{
 			accessorKey: "title",
 			header: "Title",
@@ -374,10 +370,10 @@ function RouteComponent() {
 		},
 	];
 
-	const table = useReactTable({
+	const table = useTable({
+		features: adminTableFeatures,
 		data: newsRows,
 		columns,
-		getCoreRowModel: getCoreRowModel(),
 	});
 
 	const handleAddSubmit = () => {
@@ -711,5 +707,3 @@ function RouteComponent() {
 		</div>
 	);
 }
-
-

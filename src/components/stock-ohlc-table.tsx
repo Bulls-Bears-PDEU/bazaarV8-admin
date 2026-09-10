@@ -2,14 +2,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	type ColumnDef,
 	flexRender,
-	getCoreRowModel,
 	type SortingState,
-	useReactTable,
+	useTable,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowDownUp, ArrowUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getStockOhlc } from "#/api/stocks";
 import useSocket from "#/hooks/use-socket";
+import { type AdminTableFeatures, adminTableFeatures } from "#/lib/table";
 import type { StockOHLC } from "#/types/stock";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
@@ -32,7 +32,7 @@ const StockOhlcTable = ({ stockId }: { stockId: string }) => {
 	});
 
 	const [sorting, setSorting] = useState<SortingState>([]);
-	const columns: ColumnDef<StockOHLC>[] = [
+	const columns: ColumnDef<AdminTableFeatures, StockOHLC>[] = [
 		{
 			id: "select",
 			header: ({ table }) => (
@@ -100,14 +100,14 @@ const StockOhlcTable = ({ stockId }: { stockId: string }) => {
 			accessorKey: "close_price",
 		},
 	];
-	const table = useReactTable({
+	const table = useTable({
+		features: adminTableFeatures,
 		data: stockOHLCData.data || [],
 		columns,
 		state: {
 			sorting,
 		},
 		onSortingChange: setSorting,
-		getCoreRowModel: getCoreRowModel(),
 	});
 
 	const socket = useSocket();

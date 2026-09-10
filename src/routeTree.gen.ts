@@ -9,24 +9,28 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as Not_authorizedRouteImport } from './routes/not_authorized'
-import { Route as AboutRouteImport } from './routes/about'
-import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthSignupRouteImport } from './routes/auth/signup'
-import { Route as AuthSigninRouteImport } from './routes/auth/signin'
-import { Route as AuthResetpasswordRouteImport } from './routes/auth/resetpassword'
-import { Route as AdminUsersRouteImport } from './routes/_admin/users'
-import { Route as AdminStocksRouteImport } from './routes/_admin/stocks'
-import { Route as AdminNewsRouteImport } from './routes/_admin/news'
-import { Route as AdminMarketRouteImport } from './routes/_admin/market'
-import { Route as AdminLeaderboardRouteImport } from './routes/_admin/leaderboard'
+import { Route as AdminRouteImport } from './routes/_admin'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as Not_authorizedRouteImport } from './routes/not_authorized'
 import { Route as AdminIposRouteImport } from './routes/_admin/ipos'
+import { Route as AdminLeaderboardRouteImport } from './routes/_admin/leaderboard'
+import { Route as AdminMarketRouteImport } from './routes/_admin/market'
+import { Route as AdminNewsRouteImport } from './routes/_admin/news'
+import { Route as AdminStocksRouteImport } from './routes/_admin/stocks'
+import { Route as AdminUsersRouteImport } from './routes/_admin/users'
+import { Route as AuthResetpasswordRouteImport } from './routes/auth/resetpassword'
+import { Route as AuthSigninRouteImport } from './routes/auth/signin'
+import { Route as AuthSignupRouteImport } from './routes/auth/signup'
 import { Route as AdminStockIdRouteImport } from './routes/_admin/stock.$id'
 
-const Not_authorizedRoute = Not_authorizedRouteImport.update({
-  id: '/not_authorized',
-  path: '/not_authorized',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/_admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -34,48 +38,14 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/_admin',
+const Not_authorizedRoute = Not_authorizedRouteImport.update({
+  id: '/not_authorized',
+  path: '/not_authorized',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthSignupRoute = AuthSignupRouteImport.update({
-  id: '/auth/signup',
-  path: '/auth/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthSigninRoute = AuthSigninRouteImport.update({
-  id: '/auth/signin',
-  path: '/auth/signin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthResetpasswordRoute = AuthResetpasswordRouteImport.update({
-  id: '/auth/resetpassword',
-  path: '/auth/resetpassword',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminStocksRoute = AdminStocksRouteImport.update({
-  id: '/stocks',
-  path: '/stocks',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminNewsRoute = AdminNewsRouteImport.update({
-  id: '/news',
-  path: '/news',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminMarketRoute = AdminMarketRouteImport.update({
-  id: '/market',
-  path: '/market',
+const AdminIposRoute = AdminIposRouteImport.update({
+  id: '/ipos',
+  path: '/ipos',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminLeaderboardRoute = AdminLeaderboardRouteImport.update({
@@ -83,10 +53,40 @@ const AdminLeaderboardRoute = AdminLeaderboardRouteImport.update({
   path: '/leaderboard',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminIposRoute = AdminIposRouteImport.update({
-  id: '/ipos',
-  path: '/ipos',
+const AdminMarketRoute = AdminMarketRouteImport.update({
+  id: '/market',
+  path: '/market',
   getParentRoute: () => AdminRoute,
+} as any)
+const AdminNewsRoute = AdminNewsRouteImport.update({
+  id: '/news',
+  path: '/news',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminStocksRoute = AdminStocksRouteImport.update({
+  id: '/stocks',
+  path: '/stocks',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AuthResetpasswordRoute = AuthResetpasswordRouteImport.update({
+  id: '/auth/resetpassword',
+  path: '/auth/resetpassword',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSigninRoute = AuthSigninRouteImport.update({
+  id: '/auth/signin',
+  path: '/auth/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSignupRoute = AuthSignupRouteImport.update({
+  id: '/auth/signup',
+  path: '/auth/signup',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminStockIdRoute = AdminStockIdRouteImport.update({
   id: '/stock/$id',
@@ -202,18 +202,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/not_authorized': {
-      id: '/not_authorized'
-      path: '/not_authorized'
-      fullPath: '/not_authorized'
-      preLoaderRoute: typeof Not_authorizedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_admin': {
@@ -223,60 +216,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth/signup': {
-      id: '/auth/signup'
-      path: '/auth/signup'
-      fullPath: '/auth/signup'
-      preLoaderRoute: typeof AuthSignupRouteImport
+    '/not_authorized': {
+      id: '/not_authorized'
+      path: '/not_authorized'
+      fullPath: '/not_authorized'
+      preLoaderRoute: typeof Not_authorizedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/auth/signin': {
-      id: '/auth/signin'
-      path: '/auth/signin'
-      fullPath: '/auth/signin'
-      preLoaderRoute: typeof AuthSigninRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/resetpassword': {
-      id: '/auth/resetpassword'
-      path: '/auth/resetpassword'
-      fullPath: '/auth/resetpassword'
-      preLoaderRoute: typeof AuthResetpasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_admin/users': {
-      id: '/_admin/users'
-      path: '/users'
-      fullPath: '/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/_admin/stocks': {
-      id: '/_admin/stocks'
-      path: '/stocks'
-      fullPath: '/stocks'
-      preLoaderRoute: typeof AdminStocksRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/_admin/news': {
-      id: '/_admin/news'
-      path: '/news'
-      fullPath: '/news'
-      preLoaderRoute: typeof AdminNewsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/_admin/market': {
-      id: '/_admin/market'
-      path: '/market'
-      fullPath: '/market'
-      preLoaderRoute: typeof AdminMarketRouteImport
+    '/_admin/ipos': {
+      id: '/_admin/ipos'
+      path: '/ipos'
+      fullPath: '/ipos'
+      preLoaderRoute: typeof AdminIposRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/leaderboard': {
@@ -286,12 +244,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLeaderboardRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/_admin/ipos': {
-      id: '/_admin/ipos'
-      path: '/ipos'
-      fullPath: '/ipos'
-      preLoaderRoute: typeof AdminIposRouteImport
+    '/_admin/market': {
+      id: '/_admin/market'
+      path: '/market'
+      fullPath: '/market'
+      preLoaderRoute: typeof AdminMarketRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/_admin/news': {
+      id: '/_admin/news'
+      path: '/news'
+      fullPath: '/news'
+      preLoaderRoute: typeof AdminNewsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/stocks': {
+      id: '/_admin/stocks'
+      path: '/stocks'
+      fullPath: '/stocks'
+      preLoaderRoute: typeof AdminStocksRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/users': {
+      id: '/_admin/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/auth/resetpassword': {
+      id: '/auth/resetpassword'
+      path: '/auth/resetpassword'
+      fullPath: '/auth/resetpassword'
+      preLoaderRoute: typeof AuthResetpasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/signin': {
+      id: '/auth/signin'
+      path: '/auth/signin'
+      fullPath: '/auth/signin'
+      preLoaderRoute: typeof AuthSigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/signup': {
+      id: '/auth/signup'
+      path: '/auth/signup'
+      fullPath: '/auth/signup'
+      preLoaderRoute: typeof AuthSignupRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_admin/stock/$id': {
       id: '/_admin/stock/$id'
