@@ -9,6 +9,9 @@ const useSocket = () => {
 		socketInstance = io(import.meta.env.VITE_BACKEND_URL, {
 			transports: ["websocket"],
 			autoConnect: false,
+			// The backend authenticates sockets from the session cookie and refuses
+			// connections without one.
+			withCredentials: true,
 		});
 
 		socketInstance.on("connect", () => {

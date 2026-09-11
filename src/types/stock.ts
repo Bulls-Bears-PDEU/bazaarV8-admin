@@ -5,7 +5,10 @@ export type Stock = {
 		sector: string;
 		volatility: number;
 		created_at: string;
-		isLocked: boolean;
+		// Trading halted for this stock. The API returns `locked`; this type used
+		// to say `isLocked`, which is why the lock badge always read "Unlocked".
+		locked: boolean;
+		last_price?: number | null;
 		name_tsv: string;
 	};
 

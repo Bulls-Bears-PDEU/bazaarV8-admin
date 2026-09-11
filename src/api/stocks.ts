@@ -46,7 +46,7 @@ export const addStockOhlc = async (ohlcData: StockOHLC) => {
 
 export const searchStocks = async (query: string) => {
 	const res = await axios.get(
-		`/stocks/searchStocks?q=${encodeURIComponent(query)}`,
+		`/stocks/searchStocks?query=${encodeURIComponent(query)}`,
 	);
 	return res.data as (Stock & { price: number })[];
 };
@@ -71,7 +71,7 @@ export const getAllSectors = async () => {
 };
 
 export const addStock = async (
-	stockData: Omit<Stock, "id" | "created_at" | "isLocked" | "name_tsv">,
+	stockData: Omit<Stock, "id" | "created_at" | "locked" | "name_tsv">,
 	initPrice: number,
 ) => {
 	const res = await axios.post("/stocks/addStock", { stockData, initPrice });

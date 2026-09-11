@@ -129,7 +129,7 @@ function RouteComponent() {
 			symbol: stock.data?.symbol || "",
 			sector: stock.data?.sector || "",
 			volatility: stock.data?.volatility || 0,
-			isLocked: stock.data?.isLocked || false,
+			locked: stock.data?.locked || false,
 		},
 	});
 	const editStockForm = useForm({
@@ -141,7 +141,7 @@ function RouteComponent() {
 					symbol: value.symbol,
 					sector: value.sector,
 					volatility: value.volatility,
-					isLocked: value.isLocked,
+					locked: value.locked,
 				};
 				console.log("Updating stock with data:", updatedData);
 				const result = await updateStock(Number(id), updatedData);
@@ -188,7 +188,7 @@ function RouteComponent() {
 					</p>
 					<p>
 						<span className="font-semibold">Status:</span>{" "}
-						{stock.data?.isLocked ? (
+						{stock.data?.locked ? (
 							<Badge variant="destructive">Locked</Badge>
 						) : (
 							<Badge variant="default">Unlocked</Badge>
@@ -302,13 +302,13 @@ function RouteComponent() {
 											</Field>
 										)}
 									</editStockForm.Field>
-									<editStockForm.Field name="isLocked">
+									<editStockForm.Field name="locked">
 										{({ state, handleChange }) => (
 											<Field orientation="horizontal">
 												<FieldContent>
 													<FieldLabel>Lock</FieldLabel>
 													<FieldDescription>
-														Locking the stock prevents further edits
+														Locking the stock halts all trading in it
 													</FieldDescription>
 												</FieldContent>
 												<Switch

@@ -222,7 +222,7 @@ function RouteComponent() {
 				cell: (info) => new Date(info.getValue() as string).toLocaleString(),
 			},
 			{
-				accessorKey: "isLocked",
+				accessorKey: "locked",
 				header: "Is Locked",
 				cell: (info) => (info.getValue() ? "Yes" : "No"),
 			},
@@ -301,7 +301,7 @@ function RouteComponent() {
 			try {
 				const stockData: Omit<
 					Stock,
-					"id" | "created_at" | "isLocked" | "name_tsv"
+					"id" | "created_at" | "locked" | "name_tsv"
 				> = {
 					name: value.name,
 					symbol: value.symbol,
