@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { PageHeader } from "#/components/page-header";
+import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
@@ -53,7 +55,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#/components/ui/select";
-import { Spinner } from "#/components/ui/spinner";
 import {
 	Table,
 	TableBody,
@@ -64,6 +65,7 @@ import {
 } from "#/components/ui/table";
 import { authClient } from "#/lib/auth-client";
 import { type AdminTableFeatures, adminTableFeatures } from "#/lib/table";
+import { cn } from "#/lib/utils";
 
 export const Route = createFileRoute("/_admin/users")({
 	component: RouteComponent,
@@ -97,7 +99,11 @@ function getDateValue(value: unknown) {
 
 function formatDate(value: unknown) {
 	const date = getDateValue(value);
-	return date ? date.toLocaleString() : "-";
+	return (
+		<span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
+			{date ? date.toLocaleString("en-IN") : "—"}
+		</span>
+	);
 }
 
 function formatPropValue(value: unknown) {
@@ -117,15 +123,50 @@ function formatPropValue(value: unknown) {
 	return JSON.stringify(value);
 }
 
-function roleBadgeVariant(role: UserRole): "default" | "secondary" | "outline" {
-	if (role === "admin") {
-		return "default";
-	}
-	if (role === "user") {
-		return "secondary";
-	}
-	return "outline";
+const ROLE_BADGE: Record<UserRole, string> = {
+	admin: "border-primary/20 bg-primary/10 text-foreground",
+	user: "",
+	pending: "border-dashed text-muted-foreground",
+};
+
+/** A header that sorts its column, in the player app's compact style. */
+function SortHeader({
+	column,
+	label,
+}: {
+	column: {
+		getIsSorted: () => false | "asc" | "desc";
+		toggleSorting: (desc?: boolean) => void;
+	};
+	label: string;
+}) {
+	const sorted = column.getIsSorted();
+	return (
+		<button
+			type="button"
+			onClick={() => column.toggleSorting(sorted === "asc")}
+			className="inline-flex items-center gap-1 whitespace-nowrap hover:text-foreground"
+		>
+			{label}
+			{sorted === "asc" ? (
+				<ArrowUp className="size-3" />
+			) : sorted === "desc" ? (
+				<ArrowDown className="size-3" />
+			) : (
+				<ArrowDownUp className="size-3 opacity-50" />
+			)}
+		</button>
+	);
 }
+
+const initials = (name: string | null | undefined) =>
+	(name ?? "")
+		.split(/\s+/)
+		.filter(Boolean)
+		.map((part) => part[0])
+		.join("")
+		.slice(0, 2)
+		.toUpperCase() || "?";
 
 function getCashBalanceMeta(user: AdminUser) {
 	const candidate = user as Record<string, unknown>;
@@ -297,72 +338,83 @@ function RouteComponent() {
 		{
 			accessorKey: "name",
 			header: "Name",
-			cell: (info) => info.getValue<string | null>() || "-",
+			cell: ({ row }) => (
+				<span className="flex items-center gap-2.5 whitespace-nowrap">
+					<Avatar className="size-7">
+						{row.original.image && <AvatarImage src={row.original.image} alt="" />}
+						<AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
+							{initials(row.original.name)}
+						</AvatarFallback>
+					</Avatar>
+					<span className="font-medium">{row.original.name || "—"}</span>
+				</span>
+			),
 		},
 		{
 			accessorKey: "email",
 			header: "Email",
-			cell: (info) => info.getValue<string | null>() || "-",
+			cell: (info) => (
+				<span className="text-muted-foreground">
+					{info.getValue<string | null>() || "—"}
+				</span>
+			),
 		},
 		{
 			id: "role",
 			header: "Role",
 			cell: ({ row }) => {
 				const role = normalizeRole(row.original.role);
-				return <Badge variant={roleBadgeVariant(role)}>{role}</Badge>;
+				return (
+					<Badge variant="outline" className={cn("capitalize", ROLE_BADGE[role])}>
+						{role}
+					</Badge>
+				);
 			},
 		},
 		{
 			id: "banned",
 			header: "Banned",
-			cell: ({ row }) => (row.original.banned ? "Yes" : "No"),
+			cell: ({ row }) =>
+				row.original.banned ? (
+					<Badge variant="outline" className="border-loss/30 bg-loss-muted text-loss">
+						Banned
+					</Badge>
+				) : (
+					<span className="text-muted-foreground">—</span>
+				),
 		},
 		{
 			accessorKey: "cash_balance",
 			header: ({ column }) => (
-				<Button
-					variant="ghost"
-					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-				>
-					Cash Balance
-					{column.getIsSorted() === "asc" ? (
-						<ArrowUp className="ml-2 h-4 w-4" />
-					) : column.getIsSorted() === "desc" ? (
-						<ArrowDown className="ml-2 h-4 w-4" />
-					) : (
-						<ArrowDownUp className="ml-2 h-4 w-4" />
-					)}
-				</Button>
+				<SortHeader column={column} label="Cash" />
 			),
 			cell: (info) => {
 				const value = info.getValue<unknown>();
-				if (typeof value === "number") {
-					return `₹${value.toFixed(2)}`;
-				}
-				return "₹0.00";
+				const amount = typeof value === "number" ? value : 0;
+				return (
+					<span className="font-mono whitespace-nowrap tabular-nums">
+						₹
+						{amount.toLocaleString("en-IN", {
+							minimumFractionDigits: 2,
+							maximumFractionDigits: 2,
+						})}
+					</span>
+				);
 			},
 		},
 		{
 			accessorKey: "banReason",
-			header: "Ban Reason",
-			cell: (info) => info.getValue<string | null>() || "-",
+			header: "Ban reason",
+			cell: (info) => (
+				<span className="text-muted-foreground">
+					{info.getValue<string | null>() || "—"}
+				</span>
+			),
 		},
 		{
 			accessorKey: "banExpires",
 			header: ({ column }) => (
-				<Button
-					variant="ghost"
-					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-				>
-					Ban Expires
-					{column.getIsSorted() === "asc" ? (
-						<ArrowUp className="ml-2 h-4 w-4" />
-					) : column.getIsSorted() === "desc" ? (
-						<ArrowDown className="ml-2 h-4 w-4" />
-					) : (
-						<ArrowDownUp className="ml-2 h-4 w-4" />
-					)}
-				</Button>
+				<SortHeader column={column} label="Ban expires" />
 			),
 			cell: (info) => formatDate(info.getValue<unknown>()),
 			enableSorting: true,
@@ -370,19 +422,7 @@ function RouteComponent() {
 		{
 			accessorKey: "createdAt",
 			header: ({ column }) => (
-				<Button
-					variant="ghost"
-					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-				>
-					Created At
-					{column.getIsSorted() === "asc" ? (
-						<ArrowUp className="ml-2 h-4 w-4" />
-					) : column.getIsSorted() === "desc" ? (
-						<ArrowDown className="ml-2 h-4 w-4" />
-					) : (
-						<ArrowDownUp className="ml-2 h-4 w-4" />
-					)}
-				</Button>
+				<SortHeader column={column} label="Joined" />
 			),
 			cell: (info) => formatDate(info.getValue<unknown>()),
 			enableSorting: true,
@@ -390,19 +430,7 @@ function RouteComponent() {
 		{
 			accessorKey: "updatedAt",
 			header: ({ column }) => (
-				<Button
-					variant="ghost"
-					onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-				>
-					Updated At
-					{column.getIsSorted() === "asc" ? (
-						<ArrowUp className="ml-2 h-4 w-4" />
-					) : column.getIsSorted() === "desc" ? (
-						<ArrowDown className="ml-2 h-4 w-4" />
-					) : (
-						<ArrowDownUp className="ml-2 h-4 w-4" />
-					)}
-				</Button>
+				<SortHeader column={column} label="Updated" />
 			),
 			cell: (info) => formatDate(info.getValue<unknown>()),
 			enableSorting: true,
@@ -454,7 +482,11 @@ function RouteComponent() {
 						</Button>
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
-								<Button variant="ghost" size="icon-sm">
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									aria-label={`Actions for ${user.email || user.name}`}
+								>
 									<MoreVertical />
 								</Button>
 							</DropdownMenuTrigger>
@@ -553,11 +585,19 @@ function RouteComponent() {
 	}
 
 	if (users.isError) {
-		return <div className="p-4">Failed to load users.</div>;
+		return (
+			<div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+				Could not load the users.
+			</div>
+		);
 	}
 
+	const pendingCount = userRows.filter(
+		(user) => normalizeRole(user.role) === "pending",
+	).length;
+
 	return (
-		<div className="p-4 w-full h-full">
+		<div className="flex flex-col gap-4">
 			<Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
 				<DialogContent className="sm:max-w-lg">
 					<DialogHeader>
@@ -609,25 +649,30 @@ function RouteComponent() {
 				</DialogContent>
 			</Dialog>
 
-			<div className="mb-4 flex items-center justify-between">
-				<h2 className="text-2xl font-bold">Users</h2>
-				<Badge variant="secondary">{totalUsers} total</Badge>
-			</div>
+			<PageHeader
+				title="Users"
+				description={`${totalUsers} accounts. Approve players by giving them the user role.`}
+				action={
+					pendingCount > 0 && (
+						<Badge variant="outline" className="border-dashed">
+							{pendingCount} waiting for approval
+						</Badge>
+					)
+				}
+			/>
 
-			<div className="rounded-md border">
+			<div className="overflow-x-auto rounded-lg border">
 				<Table>
 					<TableHeader>
 						{table.getHeaderGroups().map((headerGroup) => (
-							<TableRow key={headerGroup.id}>
+							<TableRow key={headerGroup.id} className="hover:bg-transparent">
 								{headerGroup.headers.map((header) =>
 									header.isPlaceholder ? null : (
-										<TableHead key={header.id}>
-											<div className="flex items-center justify-between gap-1">
-												{flexRender(
-													header.column.columnDef.header,
-													header.getContext(),
-												)}
-											</div>
+										<TableHead key={header.id} className="h-9 text-xs">
+											{flexRender(
+												header.column.columnDef.header,
+												header.getContext(),
+											)}
 										</TableHead>
 									),
 								)}
@@ -638,8 +683,8 @@ function RouteComponent() {
 						{table.getRowModel().rows.length === 0 ? (
 							<TableRow>
 								<TableCell
-									className="text-center text-muted-foreground"
-									colSpan={11}
+									className="py-8 text-center text-muted-foreground"
+									colSpan={columns.length}
 								>
 									No users found.
 								</TableCell>
@@ -648,7 +693,7 @@ function RouteComponent() {
 							table.getRowModel().rows.map((row) => (
 								<TableRow key={row.id}>
 									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id}>
+										<TableCell key={cell.id} className="py-2">
 											{flexRender(
 												cell.column.columnDef.cell,
 												cell.getContext(),

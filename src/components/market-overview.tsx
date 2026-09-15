@@ -9,18 +9,16 @@ import {
 	Scale,
 	Users,
 } from "lucide-react";
-import { getIndexHistory, getMarketOverview } from "#/api/market";
-import { IndexChart } from "#/components/index-chart";
+import { getMarketOverview } from "#/api/market";
+import { IndexCard } from "#/components/index-card";
 import { Badge } from "#/components/ui/badge";
 import {
 	Card,
-	CardAction,
 	CardContent,
 	CardDescription,
 	CardHeader,
 	CardTitle,
 } from "#/components/ui/card";
-import { Empty, EmptyDescription, EmptyHeader } from "#/components/ui/empty";
 import { Separator } from "#/components/ui/separator";
 import { Skeleton } from "#/components/ui/skeleton";
 import { cn } from "#/lib/utils";
@@ -172,16 +170,10 @@ export function MarketOverview({ isPaused }: { isPaused: boolean }) {
 		refetchInterval,
 	});
 
-	const history = useQuery({
-		queryKey: ["market-index-history"],
-		queryFn: () => getIndexHistory(),
-		refetchInterval,
-	});
-
 	if (overview.isPending) {
 		return (
 			<div className="flex flex-col gap-4">
-				<Skeleton className="h-80 w-full rounded-xl" />
+				<IndexCard isPaused={isPaused} />
 				<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 					{["breadth", "capital", "activity", "listings"].map((key) => (
 						<Skeleton key={key} className="h-28 w-full rounded-xl" />
@@ -206,60 +198,13 @@ export function MarketOverview({ isPaused }: { isPaused: boolean }) {
 	}
 
 	const data = overview.data;
-	const { index, breadth, activity, participants, news, ipos } = data;
+	const { breadth, activity, participants, news, ipos } = data;
 	const decided = breadth.advancing + breadth.declining;
 	const advancingShare = decided ? (breadth.advancing / decided) * 100 : 50;
-	const isUp = (index.change_pct ?? 0) >= 0;
 
 	return (
 		<div className="flex flex-col gap-4">
-			<Card>
-				<CardHeader>
-					<CardDescription>
-						Bazaar Index · equal weighted across {index.priced_stocks}{" "}
-						{index.priced_stocks === 1 ? "stock" : "stocks"}
-					</CardDescription>
-					<CardTitle className="flex flex-wrap items-baseline gap-3">
-						<span className="font-mono text-5xl tabular-nums tracking-tight">
-							{index.level === null ? "—" : index.level.toFixed(2)}
-						</span>
-						<span
-							className={cn(
-								"flex items-center gap-1 font-mono text-lg",
-								directionClass(index.change_pct),
-							)}
-						>
-							<DirectionIcon value={index.change_pct} />
-							{formatPercent(index.change_pct)}
-						</span>
-					</CardTitle>
-					<CardDescription>
-						Rebased to 100 at the start of the last {data.window_candles}{" "}
-						candles. Average stock {formatPrice(index.average_price)}.
-					</CardDescription>
-					<CardAction>
-						<Badge variant={isPaused ? "destructive" : "secondary"}>
-							{isPaused ? "Trading halted" : "Trading live"}
-						</Badge>
-					</CardAction>
-				</CardHeader>
-				<CardContent>
-					{history.isPending ? (
-						<Skeleton className="h-60 w-full" />
-					) : history.data && history.data.points.length > 1 ? (
-						<IndexChart history={history.data} isUp={isUp} />
-					) : (
-						<Empty className="h-60">
-							<EmptyHeader>
-								<EmptyDescription>
-									Not enough price history to plot yet. The chart appears once
-									the engine has generated a few candles.
-								</EmptyDescription>
-							</EmptyHeader>
-						</Empty>
-					)}
-				</CardContent>
-			</Card>
+			<IndexCard isPaused={isPaused} />
 
 			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 				<StatCard
@@ -280,7 +225,10 @@ export function MarketOverview({ isPaused }: { isPaused: boolean }) {
 									style={{ width: `${advancingShare}%` }}
 								/>
 							</div>
-							<span>advancing vs declining of {breadth.total} listed</span>
+							<span>
+								rising vs falling over the last {data.window_candles} candles, of{" "}
+								{breadth.total} listed
+							</span>
 						</div>
 					}
 				/>
@@ -320,7 +268,9 @@ export function MarketOverview({ isPaused }: { isPaused: boolean }) {
 				<Card>
 					<CardHeader>
 						<CardTitle className="text-base">Leading</CardTitle>
-						<CardDescription>Biggest risers over the window</CardDescription>
+						<CardDescription>
+							Biggest risers over the last {data.window_candles} candles
+						</CardDescription>
 					</CardHeader>
 					<CardContent className="divide-y">
 						{data.top_gainers.length ? (
@@ -338,7 +288,9 @@ export function MarketOverview({ isPaused }: { isPaused: boolean }) {
 				<Card>
 					<CardHeader>
 						<CardTitle className="text-base">Lagging</CardTitle>
-						<CardDescription>Biggest fallers over the window</CardDescription>
+						<CardDescription>
+							Biggest fallers over the last {data.window_candles} candles
+						</CardDescription>
 					</CardHeader>
 					<CardContent className="divide-y">
 						{data.top_losers.length ? (
@@ -356,7 +308,9 @@ export function MarketOverview({ isPaused }: { isPaused: boolean }) {
 				<Card>
 					<CardHeader>
 						<CardTitle className="text-base">Sectors</CardTitle>
-						<CardDescription>Average move, strongest first</CardDescription>
+						<CardDescription>
+							Average move over the last {data.window_candles} candles
+						</CardDescription>
 					</CardHeader>
 					<CardContent className="divide-y">
 						{data.sectors.length ? (

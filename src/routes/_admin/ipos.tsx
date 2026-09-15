@@ -2,20 +2,25 @@ import { formOptions, useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { type ColumnDef, flexRender, useTable } from "@tanstack/react-table";
-import { CheckCircle2, Plus, TrendingDown, TrendingUp } from "lucide-react";
+import {
+	CalendarClock,
+	CircleCheck,
+	CircleDashed,
+	CirclePlay,
+	CircleStop,
+	CircleX,
+	type LucideIcon,
+	Plus,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { addIpo, getAllIposAdmin, updateIpoStatus } from "#/api/ipos";
 import { getAllSectors, getAllStocks } from "#/api/stocks";
+import { PageHeader } from "#/components/page-header";
+import { SectionTitle, Stat } from "#/components/stat";
+import { StockLogo } from "#/components/stock-logo";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "#/components/ui/card";
 import {
 	Combobox,
 	ComboboxContent,
@@ -58,29 +63,66 @@ import {
 	TableRow,
 } from "#/components/ui/table";
 import { type AdminTableFeatures, adminTableFeatures } from "#/lib/table";
+import { cn } from "#/lib/utils";
 import type { Ipo, IpoStatus } from "#/types/ipo";
 
 export const Route = createFileRoute("/_admin/ipos")({
 	component: RouteComponent,
 });
 
-const statusColors: Record<Ipo["status"], string> = {
-	dormant: "bg-slate-100 text-slate-800",
-	upcoming: "bg-yellow-100 text-yellow-800",
-	open: "bg-green-100 text-green-800",
-	closed: "bg-red-100 text-red-800",
-	listed: "bg-blue-100 text-blue-800",
-	withdrawn: "bg-gray-100 text-gray-800",
+const STATUS: Record<
+	Ipo["status"],
+	{ label: string; icon: LucideIcon; badge: string; hint: string }
+> = {
+	dormant: {
+		label: "Dormant",
+		icon: CircleDashed,
+		badge: "border-dashed text-muted-foreground",
+		hint: "Drafts players cannot see yet",
+	},
+	upcoming: {
+		label: "Upcoming",
+		icon: CalendarClock,
+		badge: "border-primary/20 bg-primary/10 text-foreground",
+		hint: "Announced, not yet taking bids",
+	},
+	open: {
+		label: "Open",
+		icon: CirclePlay,
+		badge: "border-gain/30 bg-gain-muted text-gain",
+		hint: "Taking subscriptions now",
+	},
+	closed: {
+		label: "Closed",
+		icon: CircleStop,
+		badge: "bg-muted text-muted-foreground",
+		hint: "Bidding over, waiting to list",
+	},
+	listed: {
+		label: "Listed",
+		icon: CircleCheck,
+		badge: "border-primary/30 text-foreground",
+		hint: "Trading on the market",
+	},
+	withdrawn: {
+		label: "Withdrawn",
+		icon: CircleX,
+		badge: "border-loss/30 bg-loss-muted text-loss",
+		hint: "Pulled before listing",
+	},
 };
 
-const statusIcons: Record<Ipo["status"], React.ReactNode> = {
-	dormant: <Plus className="h-4 w-4" />,
-	upcoming: <TrendingUp className="h-4 w-4" />,
-	open: <CheckCircle2 className="h-4 w-4" />,
-	closed: <TrendingDown className="h-4 w-4" />,
-	listed: <CheckCircle2 className="h-4 w-4" />,
-	withdrawn: <TrendingDown className="h-4 w-4" />,
-};
+// The lifecycle, in the order an organiser works through it.
+const SECTIONS: { status: Ipo["status"]; empty: string }[] = [
+	{ status: "open", empty: "No IPOs are taking subscriptions." },
+	{ status: "upcoming", empty: "Nothing announced yet." },
+	{ status: "closed", empty: "No IPOs are waiting to list." },
+	{ status: "dormant", empty: "No drafts." },
+	{ status: "listed", empty: "No IPOs have listed yet." },
+];
+
+const inrPrice = (value: number | string) =>
+	Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
 function IpoTable({
 	ipos,
@@ -109,16 +151,21 @@ function IpoTable({
 			header: "Symbol",
 			cell: (info) => {
 				const value = info.getValue<string>();
-				return <span className="font-bold">{value}</span>;
+				return (
+					<span className="flex items-center gap-2.5 font-mono font-medium">
+						<StockLogo symbol={value} />
+						{value}
+					</span>
+				);
 			},
 		},
 		{
 			accessorKey: "name",
-			header: "Company Name",
+			header: "Company",
 			cell: (info) => {
 				const value = info.getValue<string>();
 				return (
-					<div className="max-w-[280px] truncate" title={value}>
+					<div className="max-w-[16rem] truncate" title={value}>
 						{value}
 					</div>
 				);
@@ -129,7 +176,7 @@ function IpoTable({
 			header: "Sector",
 			cell: (info) => {
 				const value = info.getValue<string>();
-				return <Badge variant="outline">{value}</Badge>;
+				return <span className="text-muted-foreground">{value}</span>;
 			},
 		},
 		{
@@ -138,51 +185,59 @@ function IpoTable({
 			cell: (info) => {
 				const row = info.row.original;
 				return (
-					<div className="text-sm">
-						₹{row.min_price} - ₹{row.max_price}
-					</div>
+					<span className="font-mono whitespace-nowrap tabular-nums">
+						₹{inrPrice(row.min_price)}–{inrPrice(row.max_price)}
+					</span>
 				);
 			},
 		},
 		{
 			accessorKey: "subscription_rate",
-			header: "Subscription Rate",
+			header: "Subscribed",
 			cell: (info) => {
 				const value = info.getValue<number>();
-				return <div className="text-sm font-medium">{value}x</div>;
+				return <span className="font-mono tabular-nums">{value}×</span>;
 			},
 		},
 		{
 			accessorKey: "open_date",
-			header: "Open Date",
-			cell: (info) => new Date(info.getValue<string>()).toLocaleDateString(),
+			header: "Opens",
+			cell: (info) => (
+				<span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
+					{new Date(info.getValue<string>()).toLocaleDateString("en-IN")}
+				</span>
+			),
 		},
 		{
 			accessorKey: "close_date",
-			header: "Close Date",
-			cell: (info) => new Date(info.getValue<string>()).toLocaleDateString(),
+			header: "Closes",
+			cell: (info) => (
+				<span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
+					{new Date(info.getValue<string>()).toLocaleDateString("en-IN")}
+				</span>
+			),
 		},
 		{
 			accessorKey: "status",
 			header: "Status",
 			cell: (info) => {
-				const status = info.getValue<Ipo["status"]>();
+				const { label, icon: Icon, badge } = STATUS[info.getValue<Ipo["status"]>()];
 				return (
-					<Badge className={statusColors[status]}>
-						{statusIcons[status]}
-						<span className="ml-1 capitalize">{status}</span>
+					<Badge variant="outline" className={badge}>
+						<Icon />
+						{label}
 					</Badge>
 				);
 			},
 		},
 		{
 			id: "actions",
-			header: "Actions",
+			header: "",
 			cell: ({ row }) => {
 				const stockId = stockIdBySymbol.get(row.original.symbol.toUpperCase());
 
 				return (
-					<div className="flex gap-2">
+					<div className="flex justify-end gap-2">
 						{row.original.status === "dormant" && (
 							<Button
 								size="sm"
@@ -196,9 +251,9 @@ function IpoTable({
 								disabled={updateStatusMutation.isPending}
 							>
 								{updateStatusMutation.isPending ? (
-									<Spinner className="h-3 w-3" />
+									<Spinner data-icon="inline-start" />
 								) : (
-									<TrendingUp className="h-3 w-3" />
+									<CalendarClock data-icon="inline-start" />
 								)}
 								Release
 							</Button>
@@ -216,9 +271,9 @@ function IpoTable({
 								disabled={updateStatusMutation.isPending}
 							>
 								{updateStatusMutation.isPending ? (
-									<Spinner className="h-3 w-3" />
+									<Spinner data-icon="inline-start" />
 								) : (
-									<TrendingUp className="h-3 w-3" />
+									<CirclePlay data-icon="inline-start" />
 								)}
 								Open
 							</Button>
@@ -236,9 +291,9 @@ function IpoTable({
 								disabled={updateStatusMutation.isPending}
 							>
 								{updateStatusMutation.isPending ? (
-									<Spinner className="h-3 w-3" />
+									<Spinner data-icon="inline-start" />
 								) : (
-									<TrendingDown className="h-3 w-3" />
+									<CircleStop data-icon="inline-start" />
 								)}
 								Close
 							</Button>
@@ -256,9 +311,9 @@ function IpoTable({
 								disabled={updateStatusMutation.isPending}
 							>
 								{updateStatusMutation.isPending ? (
-									<Spinner className="h-3 w-3" />
+									<Spinner data-icon="inline-start" />
 								) : (
-									<CheckCircle2 className="h-3 w-3" />
+									<CircleCheck data-icon="inline-start" />
 								)}
 								List
 							</Button>
@@ -288,13 +343,13 @@ function IpoTable({
 	});
 
 	return (
-		<div className="rounded-md border">
+		<div className="overflow-x-auto rounded-lg border">
 			<Table>
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
-						<TableRow key={headerGroup.id}>
+						<TableRow key={headerGroup.id} className="hover:bg-transparent">
 							{headerGroup.headers.map((header) => (
-								<TableHead key={header.id}>
+								<TableHead key={header.id} className="h-9 text-xs">
 									{header.isPlaceholder
 										? null
 										: flexRender(
@@ -311,7 +366,7 @@ function IpoTable({
 						table.getRowModel().rows.map((row) => (
 							<TableRow key={row.id}>
 								{row.getVisibleCells().map((cell) => (
-									<TableCell key={cell.id}>
+									<TableCell key={cell.id} className="py-2">
 										{flexRender(cell.column.columnDef.cell, cell.getContext())}
 									</TableCell>
 								))}
@@ -319,7 +374,10 @@ function IpoTable({
 						))
 					) : (
 						<TableRow>
-							<TableCell colSpan={10} className="h-24 text-center">
+							<TableCell
+								colSpan={columns.length}
+								className="h-24 text-center text-muted-foreground"
+							>
 								No IPOs available.
 							</TableCell>
 						</TableRow>
@@ -489,24 +547,33 @@ function RouteComponent() {
 		},
 	});
 	const sectorItems = sectors.data ?? [];
+	const iposByStatus: Record<Ipo["status"], Ipo[]> = {
+		dormant: dormantIpos,
+		upcoming: upcomingIpos,
+		open: openIpos,
+		closed: closedIpos,
+		listed: listedIpos,
+		withdrawn: (iposQuery.data ?? []).filter((ipo) => ipo.status === "withdrawn"),
+	};
 
 	if (iposQuery.isLoading) {
 		return <Loading text="Loading IPOs..." />;
 	}
 
 	if (iposQuery.isError) {
-		return <div className="p-4">Failed to load IPOs.</div>;
+		return (
+			<div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+				Could not load the IPOs.
+			</div>
+		);
 	}
 
 	return (
-		<div className="w-full p-4">
-			<div className="mb-4 flex items-center justify-between gap-4">
-				<div>
-					<h1 className="text-2xl font-bold">IPO Admin Dashboard</h1>
-					<p className="text-sm text-muted-foreground">
-						Manage Initial Public Offerings across all lifecycle stages.
-					</p>
-				</div>
+		<div className="flex flex-col gap-6">
+			<PageHeader
+				title="IPOs"
+				description="Draft, announce, open, close and list new stocks."
+				action={
 				<Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
 					<DialogTrigger asChild>
 						<Button>
@@ -806,162 +873,49 @@ function RouteComponent() {
 						</form>
 					</DialogContent>
 				</Dialog>
+				}
+			/>
+
+			<div className="grid grid-cols-2 gap-4 rounded-xl border p-4 sm:grid-cols-3 lg:grid-cols-5">
+				{SECTIONS.map(({ status }) => (
+					<Stat
+						key={status}
+						label={STATUS[status].label}
+						value={iposByStatus[status].length}
+						hint={STATUS[status].hint}
+					/>
+				))}
 			</div>
 
-			<div className="mb-6 grid gap-4 md:grid-cols-5">
-				<Card>
-					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<Plus className="h-5 w-5 text-slate-600" />
-							Dormant IPOs
-						</CardTitle>
-						<CardDescription>Stored in DB, hidden from users</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<div className="text-3xl font-bold">{dormantIpos.length}</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<TrendingUp className="h-5 w-5 text-green-600" />
-							Open IPOs
-						</CardTitle>
-						<CardDescription>Currently accepting subscriptions</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<div className="text-3xl font-bold">{openIpos.length}</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<Plus className="h-5 w-5 text-yellow-600" />
-							Upcoming IPOs
-						</CardTitle>
-						<CardDescription>Scheduled to open soon</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<div className="text-3xl font-bold">{upcomingIpos.length}</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<TrendingDown className="h-5 w-5 text-red-600" />
-							Closed IPOs
-						</CardTitle>
-						<CardDescription>Subscription period ended</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<div className="text-3xl font-bold">{closedIpos.length}</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle className="flex items-center gap-2">
-							<CheckCircle2 className="h-5 w-5 text-blue-600" />
-							Listed IPOs
-						</CardTitle>
-						<CardDescription>Successfully listed on exchange</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<div className="text-3xl font-bold">{listedIpos.length}</div>
-					</CardContent>
-				</Card>
-			</div>
-
-			<div className="space-y-6">
-				{/* Dormant IPOs Section */}
-				<div>
-					<div className="mb-4 flex items-center gap-2">
-						<Plus className="h-5 w-5 text-slate-600" />
-						<h2 className="text-xl font-semibold">Dormant IPOs</h2>
-						<Badge variant="outline">{dormantIpos.length}</Badge>
-					</div>
-					{dormantIpos.length > 0 ? (
-						<IpoTable ipos={dormantIpos} stockIdBySymbol={stockIdBySymbol} />
-					) : (
-						<Card>
-							<CardContent className="flex h-32 items-center justify-center text-muted-foreground">
-								No dormant IPO drafts found.
-							</CardContent>
-						</Card>
-					)}
-				</div>
-
-				{/* Open IPOs Section */}
-				<div>
-					<div className="mb-4 flex items-center gap-2">
-						<TrendingUp className="h-5 w-5 text-green-600" />
-						<h2 className="text-xl font-semibold">Open IPOs</h2>
-						<Badge>{openIpos.length}</Badge>
-					</div>
-					{openIpos.length > 0 ? (
-						<IpoTable ipos={openIpos} stockIdBySymbol={stockIdBySymbol} />
-					) : (
-						<Card>
-							<CardContent className="flex h-32 items-center justify-center text-muted-foreground">
-								No open IPOs at the moment.
-							</CardContent>
-						</Card>
-					)}
-				</div>
-
-				{/* Upcoming IPOs Section */}
-				<div>
-					<div className="mb-4 flex items-center gap-2">
-						<Plus className="h-5 w-5 text-yellow-600" />
-						<h2 className="text-xl font-semibold">Upcoming IPOs</h2>
-						<Badge variant="outline">{upcomingIpos.length}</Badge>
-					</div>
-					{upcomingIpos.length > 0 ? (
-						<IpoTable ipos={upcomingIpos} stockIdBySymbol={stockIdBySymbol} />
-					) : (
-						<Card>
-							<CardContent className="flex h-32 items-center justify-center text-muted-foreground">
-								No upcoming IPOs scheduled.
-							</CardContent>
-						</Card>
-					)}
-				</div>
-
-				{/* Closed IPOs Section */}
-				<div>
-					<div className="mb-4 flex items-center gap-2">
-						<TrendingDown className="h-5 w-5 text-red-600" />
-						<h2 className="text-xl font-semibold">Closed IPOs</h2>
-						<Badge variant="secondary">{closedIpos.length}</Badge>
-					</div>
-					{closedIpos.length > 0 ? (
-						<IpoTable ipos={closedIpos} stockIdBySymbol={stockIdBySymbol} />
-					) : (
-						<Card>
-							<CardContent className="flex h-32 items-center justify-center text-muted-foreground">
-								No closed IPOs yet.
-							</CardContent>
-						</Card>
-					)}
-				</div>
-
-				{/* Listed IPOs Section */}
-				<div>
-					<div className="mb-4 flex items-center gap-2">
-						<CheckCircle2 className="h-5 w-5 text-blue-600" />
-						<h2 className="text-xl font-semibold">Listed IPOs</h2>
-						<Badge variant="secondary">{listedIpos.length}</Badge>
-					</div>
-					{listedIpos.length > 0 ? (
-						<IpoTable ipos={listedIpos} stockIdBySymbol={stockIdBySymbol} />
-					) : (
-						<Card>
-							<CardContent className="flex h-32 items-center justify-center text-muted-foreground">
-								No listed IPOs yet.
-							</CardContent>
-						</Card>
-					)}
-				</div>
-			</div>
+			{SECTIONS.map(({ status, empty }) => {
+				const { label, icon: Icon } = STATUS[status];
+				const items = iposByStatus[status];
+				return (
+					<section key={status} className="flex flex-col gap-3">
+						<SectionTitle>
+							<span className="flex items-center gap-2">
+								<Icon
+									className={cn(
+										"size-4 text-muted-foreground",
+										status === "open" && "text-gain",
+									)}
+								/>
+								{label}
+								<span className="font-mono text-xs font-normal text-muted-foreground">
+									{items.length}
+								</span>
+							</span>
+						</SectionTitle>
+						{items.length > 0 ? (
+							<IpoTable ipos={items} stockIdBySymbol={stockIdBySymbol} />
+						) : (
+							<p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+								{empty}
+							</p>
+						)}
+					</section>
+				);
+			})}
 		</div>
 	);
 }

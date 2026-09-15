@@ -1,34 +1,24 @@
 import { formOptions, useForm } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import {
-	ArrowDown,
-	ArrowDownUp,
-	ArrowUp,
-	IndianRupee,
-	Landmark,
-	Pen,
-	Plus,
-	TrendingDown,
-	TrendingUp,
-	TrendingUpDown,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { Pen, Plus } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
 	addStockOhlc,
 	getAllSectors,
 	getStock,
-	getStockOhlc,
-	getStockPrice,
 	updateStock,
 } from "#/api/stocks";
 import StockCurrentPrice from "#/components/current-price";
+import { PageHeader } from "#/components/page-header";
+import { SectionTitle, Stat } from "#/components/stat";
+import { StockLogo } from "#/components/stock-logo";
 import StockOhlcTable from "#/components/stock-ohlc-table";
 import TVChart from "#/components/tv-chart";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
-import { Checkbox } from "#/components/ui/checkbox";
+import { Card, CardContent } from "#/components/ui/card";
 import {
 	Dialog,
 	DialogContent,
@@ -56,18 +46,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "#/components/ui/select";
-import { Skeleton } from "#/components/ui/skeleton";
 import { Spinner } from "#/components/ui/spinner";
 import { Switch } from "#/components/ui/switch";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "#/components/ui/table";
-import useSocket from "#/hooks/use-socket";
 import type { StockOHLC } from "#/types/stock";
 
 export const Route = createFileRoute("/_admin/stock/$id")({
@@ -160,67 +140,94 @@ function RouteComponent() {
 		return <Loading text="Loading stock..." />;
 	}
 	return (
-		<div className="p-4 w-full max-w-full overflow-hidden">
-			<div className="flex items-center justify-between mb-4">
-				<div className="flex items-center gap-4">
-					<Landmark className="p-4 bg-indigo-900 size-20 rounded-md" />
-					<div className="flex items-start flex-col gap-2">
-						<h1 className="text-3xl font-bold flex items-center">
-							{stock.data?.name}
-						</h1>
-						<Badge variant="default">{stock.data?.symbol}</Badge>
-					</div>
-				</div>
-				<StockCurrentPrice stockId={String(stock.data?.id) || ""} />
-			</div>
-			<div className="flex items-stretch gap-4 mb-4">
-				<div className="rounded-md bg-secondary p-4 w-full">
-					<p>
-						<span className="font-semibold">Sector:</span> {stock.data?.sector}
-					</p>
-					<p>
-						<span className="font-semibold">Volatility:</span>{" "}
-						{stock.data?.volatility}
-					</p>
-					<p>
-						<span className="font-semibold">Created At:</span>{" "}
-						{new Date(stock.data?.created_at || "").toLocaleString()}
-					</p>
-					<p>
-						<span className="font-semibold">Status:</span>{" "}
-						{stock.data?.locked ? (
-							<Badge variant="destructive">Locked</Badge>
-						) : (
-							<Badge variant="default">Unlocked</Badge>
-						)}
-					</p>
-				</div>
-				<div className="self-stretch aspect-square shrink-0">
-					<Button
-						onClick={() => setIsEditDialogOpen(true)}
-						className="h-full w-full"
-					>
-						<Pen />
+		<div className="flex min-w-0 flex-col gap-6">
+			<PageHeader
+				leading={
+					stock.data && <StockLogo symbol={stock.data.symbol} size="lg" />
+				}
+				title={stock.data?.name ?? "Stock"}
+				description={
+					stock.data && (
+						<span className="font-mono">
+							{stock.data.symbol}
+							<span className="font-sans"> · {stock.data.sector}</span>
+						</span>
+					)
+				}
+				action={
+					<Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
+						<Pen data-icon="inline-start" />
+						Edit details
 					</Button>
-				</div>
-			</div>
-			<div className="w-full">
-				<TVChart stockId={String(stock.data?.id) || ""} />
-				<FieldDescription className="mt-2 ml-2">
-					The chart above shows the historical price data for this stock,
-					including the open, high, low, and close prices for each time period.
-				</FieldDescription>
-			</div>
+				}
+			/>
 
-			<div className="mt-8 max-w-full">
-				<div className="flex items-center justify-between mb-4">
-					<h2 className="text-2xl font-bold">Historical Price Data</h2>
-					<Button size="lg" onClick={() => setIsAddRecordDialogOpen(true)}>
-						Add Record <Plus />
-					</Button>
-				</div>
-				<StockOhlcTable stockId={String(stock.data?.id) || ""} />
-			</div>
+			<Card>
+				<CardContent className="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-5">
+					<StockCurrentPrice
+						stockId={stock.data ? String(stock.data.id) : ""}
+						className="col-span-2 md:col-span-2"
+					/>
+					<Stat label="Sector" value={stock.data?.sector ?? "—"} />
+					<Stat
+						label="Volatility"
+						value={
+							stock.data ? Number(stock.data.volatility).toFixed(2) : "—"
+						}
+						hint="Annualised"
+					/>
+					<Stat
+						label="Trading"
+						value={
+							stock.data?.locked ? (
+								<Badge
+									variant="outline"
+									className="border-loss/30 bg-loss-muted font-sans text-loss"
+								>
+									Halted
+								</Badge>
+							) : (
+								<Badge
+									variant="outline"
+									className="border-gain/30 bg-gain-muted font-sans text-gain"
+								>
+									Open
+								</Badge>
+							)
+						}
+						hint={
+							stock.data &&
+							`Listed ${new Date(stock.data.created_at).toLocaleDateString("en-IN")}`
+						}
+					/>
+				</CardContent>
+			</Card>
+
+			{stock.data && (
+				<TVChart
+					key={stock.data.id}
+					stockId={String(stock.data.id)}
+					symbol={stock.data.symbol}
+				/>
+			)}
+
+			<section className="flex min-w-0 flex-col gap-3">
+				<SectionTitle
+					action={
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => setIsAddRecordDialogOpen(true)}
+						>
+							<Plus data-icon="inline-start" />
+							Add record
+						</Button>
+					}
+				>
+					Price history
+				</SectionTitle>
+				<StockOhlcTable stockId={stock.data ? String(stock.data.id) : ""} />
+			</section>
 			<Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
 				{/* Implement the dialog for editing stock details here */}
 				<DialogContent>

@@ -1,12 +1,7 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { LogIn, LogOut } from "lucide-react";
+import { LogIn } from "lucide-react";
+import { Brand } from "#/components/brand";
 import { Button } from "#/components/ui/button";
-import {
-	Empty,
-	EmptyContent,
-	EmptyHeader,
-	EmptyTitle,
-} from "#/components/ui/empty";
 import { authClient } from "#/lib/auth-client";
 
 export const Route = createFileRoute("/")({
@@ -21,20 +16,20 @@ export const Route = createFileRoute("/")({
 
 function RouteComponent() {
 	return (
-		<Empty className="h-screen">
-			<EmptyHeader>
-				<EmptyTitle className="text-2xl font-bold">
-					Welcome to Bazaar Admin
-				</EmptyTitle>
-			</EmptyHeader>
-			<EmptyContent>
+		<div className="flex min-h-svh flex-col items-center justify-center gap-8 p-6 text-center">
+			<Brand />
+			<div className="flex max-w-md flex-col items-center gap-3">
+				<h1 className="text-2xl font-semibold tracking-tight">The Bazaar control room</h1>
+				<p className="text-sm text-balance text-muted-foreground">
+					Sign in with an organiser account to steer the market, release news and manage players.
+				</p>
+			</div>
+			<Button asChild>
 				<Link to="/auth/signin">
-					<Button variant="default">
-						<LogIn />
-						Log In
-					</Button>
+					<LogIn data-icon="inline-start" />
+					Sign in
 				</Link>
-			</EmptyContent>
-		</Empty>
+			</Button>
+		</div>
 	);
 }

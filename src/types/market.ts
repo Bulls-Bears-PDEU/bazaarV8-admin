@@ -36,8 +36,12 @@ export type MarketOverview = {
 	generated_at: string;
 	window_candles: number;
 	index: {
+		// The Bazaar index: 100 where the market started, as players see it.
 		level: number | null;
 		change_pct: number | null;
+		basis: "start";
+		// The index's move over the window of candles alone.
+		window_change_pct: number | null;
 		average_price: number | null;
 		priced_stocks: number;
 	};
@@ -83,8 +87,21 @@ export type MarketOverview = {
 	};
 };
 
+/** The Bazaar index now, as calculated by the backend. */
+export type IndexSnapshot = {
+	level: number | null;
+	change_pct: number | null;
+	// Stocks above, below and at their starting price.
+	advancing: number;
+	declining: number;
+	unchanged: number;
+	priced_stocks: number;
+	timestamp: string;
+};
+
 export type IndexHistory = {
-	points: { timestamp: string; value: number }[];
+	points: { timestamp: string; value: number; change_pct: number }[];
+	basis?: "window" | "start";
 	window_candles: number;
 	stock_count: number;
 };

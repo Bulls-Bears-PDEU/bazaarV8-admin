@@ -4,7 +4,11 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { ThemeProvider } from "./components/theme-provider";
 import { TooltipProvider } from "./components/ui/tooltip";
+import { applyA11yPrefs } from "./lib/a11y";
 import { routeTree } from "./routeTree.gen";
+
+// Before the first paint, so larger text or calmer colours never flash in.
+applyA11yPrefs();
 
 const router = createRouter({
 	routeTree,

@@ -3,24 +3,22 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import {
 	Eye,
 	EyeOff,
-	GalleryVerticalEnd,
 	KeyRound,
 	MailCheck,
 } from "lucide-react";
 import { type SubmitEvent, useState } from "react";
 import { toast } from "sonner";
-import placeholder from "#/assets/placeholder.svg";
+import { AuthLayout } from "#/components/auth-layout";
 import { Button } from "#/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import { authClient } from "#/lib/auth-client";
-import { cn } from "#/lib/utils";
 import { Spinner } from "./ui/spinner";
 
 export function ResetPasswordForm({
 	className,
 	...props
-}: React.ComponentProps<"div"> & { token?: string }) {
+}: { className?: string; token?: string }) {
 	const navigate = useNavigate();
 	const [showPassword, setShowPassword] = useState(false);
 	const [isSubmitted, setIsSubmitted] = useState(false);
@@ -95,18 +93,7 @@ export function ResetPasswordForm({
 	});
 
 	return (
-		<div className={cn("grid min-h-svh lg:grid-cols-2", className)} {...props}>
-			<div className="flex flex-col gap-4 p-6 md:p-10">
-				<div className="flex justify-center gap-2 md:justify-start">
-					<Link to="/" className="flex items-center gap-2 font-medium">
-						<div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-							<GalleryVerticalEnd className="size-4" />
-						</div>
-						Bazaar Admin
-					</Link>
-				</div>
-				<div className="flex flex-1 items-center justify-center">
-					<div className="w-full max-w-sm">
+		<AuthLayout className={className}>
 						{isSettingNewPassword ? (
 							// Flow: Setting New Password
 							<form onSubmit={handleSetNewPassword.mutate}>
@@ -257,25 +244,6 @@ export function ResetPasswordForm({
 								</div>
 							</form>
 						)}
-					</div>
-				</div>
-			</div>
-			<div className="relative hidden bg-muted lg:block">
-				<img
-					src={placeholder}
-					alt="Bazaar cover"
-					className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
-				/>
-				<div className="absolute bottom-10 left-10 text-white z-10 p-6 mix-blend-difference">
-					<blockquote className="space-y-2">
-						<p className="text-lg font-medium opacity-80 backdrop-invert-0">
-							"Secure your account with ease. Our streamlined recovery process
-							gets you back to navigating the markets rapidly."
-						</p>
-						<footer className="text-sm indent-1">- Bazaar Security Team</footer>
-					</blockquote>
-				</div>
-			</div>
-		</div>
+		</AuthLayout>
 	);
 }

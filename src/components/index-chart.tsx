@@ -7,36 +7,9 @@ import {
 	LineStyle,
 	type UTCTimestamp,
 } from "lightweight-charts";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import { useChartColors } from "#/lib/chart-colors";
 import type { IndexHistory } from "#/types/market";
-
-/** The theme provider toggles this class on <html>. */
-function isDarkNow() {
-	if (typeof document === "undefined") return false;
-	return document.documentElement.classList.contains("dark");
-}
-
-// Lightweight Charts parses colours itself and does not understand oklch, so
-// the chart keeps its own hex palette. These mirror the --gain / --loss /
-// --border / --muted-foreground tokens in styles.css; update them together.
-const PALETTE = {
-	light: {
-		gain: "#009456",
-		loss: "#df1c21",
-		gainArea: "rgba(0, 148, 86, 0.14)",
-		lossArea: "rgba(223, 28, 33, 0.14)",
-		grid: "#e3e7e8",
-		text: "#67787c",
-	},
-	dark: {
-		gain: "#30c77d",
-		loss: "#ff6467",
-		gainArea: "rgba(48, 199, 125, 0.18)",
-		lossArea: "rgba(255, 100, 103, 0.18)",
-		grid: "rgba(255, 255, 255, 0.12)",
-		text: "#9ca8ab",
-	},
-};
 
 /**
  * Lightweight Charts needs strictly ascending, unique timestamps. Simulated
@@ -64,45 +37,28 @@ export function IndexChart({
 }) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const chartRef = useRef<IChartApi | null>(null);
-	const [isDark, setIsDark] = useState(isDarkNow);
-
-	// Colours come from CSS variables, so the chart is rebuilt when the theme
-	// flips. Watching the class the theme provider sets keeps this component free
-	// of any React context, and therefore of the provider's React copy.
-	useEffect(() => {
-		const observer = new MutationObserver(() => {
-			setIsDark((current) => {
-				const next = isDarkNow();
-				return next === current ? current : next;
-			});
-		});
-		observer.observe(document.documentElement, {
-			attributes: true,
-			attributeFilter: ["class"],
-		});
-		return () => observer.disconnect();
-	}, []);
+	// Theme tokens, re-read on light/dark and the accessibility settings.
+	const colors = useChartColors();
 
 	useEffect(() => {
 		const container = containerRef.current;
 		if (!container) return;
 
-		const palette = isDark ? PALETTE.dark : PALETTE.light;
-		const line = isUp ? palette.gain : palette.loss;
+		const line = isUp ? colors.gain : colors.loss;
 
 		const chart = createChart(container, {
 			layout: {
 				background: { type: ColorType.Solid, color: "rgba(0, 0, 0, 0)" },
-				textColor: palette.text,
+				textColor: colors.text,
 				fontFamily: "DM Mono, monospace",
-				fontSize: 11,
+				fontSize: colors.fontSize,
 				attributionLogo: false,
 			},
 			height: 240,
 			width: container.clientWidth,
 			grid: {
 				vertLines: { visible: false },
-				horzLines: { color: palette.grid, style: LineStyle.Dotted },
+				horzLines: { color: colors.grid, style: LineStyle.Dotted },
 			},
 			rightPriceScale: {
 				borderVisible: false,
@@ -115,8 +71,8 @@ export function IndexChart({
 			},
 			crosshair: {
 				mode: CrosshairMode.Magnet,
-				vertLine: { color: palette.text, width: 1, style: LineStyle.Dotted },
-				horzLine: { color: palette.text, labelBackgroundColor: line },
+				vertLine: { color: colors.crosshair, width: 1, style: LineStyle.Dotted },
+				horzLine: { color: colors.crosshair, labelBackgroundColor: line },
 			},
 			handleScale: false,
 			handleScroll: false,
@@ -126,7 +82,7 @@ export function IndexChart({
 		const series = chart.addSeries(AreaSeries, {
 			lineColor: line,
 			lineWidth: 2,
-			topColor: isUp ? palette.gainArea : palette.lossArea,
+			topColor: isUp ? colors.gainFill : colors.lossFill,
 			bottomColor: "rgba(0, 0, 0, 0)",
 			priceLineVisible: false,
 			priceFormat: { type: "price", precision: 2, minMove: 0.01 },
@@ -136,7 +92,7 @@ export function IndexChart({
 		// The baseline the index is rebased to, so gains and losses read at a glance.
 		series.createPriceLine({
 			price: 100,
-			color: palette.text,
+			color: colors.text,
 			lineWidth: 1,
 			lineStyle: LineStyle.Dashed,
 			axisLabelVisible: true,
@@ -155,7 +111,7 @@ export function IndexChart({
 			chart.remove();
 			chartRef.current = null;
 		};
-	}, [history, isUp, isDark]);
+	}, [history, isUp, colors]);
 
 	return <div ref={containerRef} className="w-full" />;
 }

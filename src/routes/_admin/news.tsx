@@ -5,15 +5,10 @@ import { EyeOff, PencilLine, Plus, Send } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { addNews, getAllNews, type NewsPayload, updateNews } from "#/api/news";
+import { PageHeader } from "#/components/page-header";
+import { Stat } from "#/components/stat";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "#/components/ui/card";
 import {
 	Dialog,
 	DialogContent,
@@ -42,6 +37,7 @@ import {
 } from "#/components/ui/table";
 import { Textarea } from "#/components/ui/textarea";
 import { type AdminTableFeatures, adminTableFeatures } from "#/lib/table";
+import { cn } from "#/lib/utils";
 import type { News } from "#/types/news";
 
 export const Route = createFileRoute("/_admin/news")({
@@ -73,7 +69,7 @@ function parseAffectedStocks(input: string): Record<string, number> {
 		parsedJson = JSON.parse(trimmed);
 	} catch {
 		throw new Error(
-			'Affected stocks must be a valid JSON object, e.g. {"AAPL": 1.5, "MSFT": -0.8}',
+			'Affected stocks must be a valid JSON object, e.g. {"RELIANCE": 4, "INFY": -2.5}',
 		);
 	}
 
@@ -281,7 +277,7 @@ function RouteComponent() {
 			cell: (info) => {
 				const value = info.getValue<string>();
 				return (
-					<div className="max-w-[360px] truncate font-medium" title={value}>
+					<div className="max-w-[22rem] truncate font-medium" title={value}>
 						{value}
 					</div>
 				);
@@ -289,39 +285,70 @@ function RouteComponent() {
 		},
 		{
 			accessorKey: "release_at",
-			header: "Release At",
-			cell: (info) => new Date(info.getValue<string>()).toLocaleString(),
+			header: "Releases",
+			cell: (info) => (
+				<span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
+					{new Date(info.getValue<string>()).toLocaleString("en-IN")}
+				</span>
+			),
 		},
 		{
 			id: "affectedStocks",
-			header: "Affected Stocks",
+			header: "Impact",
 			cell: ({ row }) => {
-				const stocks = Object.keys(row.original.affected_stocks ?? {});
-				return stocks.length > 0 ? `${stocks.length} stocks` : "None";
+				const impacts = Object.entries(row.original.affected_stocks ?? {});
+				if (impacts.length === 0) {
+					return <span className="text-muted-foreground">None</span>;
+				}
+				return (
+					<div className="flex max-w-[18rem] flex-wrap gap-1">
+						{impacts.map(([stock, impact]) => (
+							<span
+								key={stock}
+								className={cn(
+									"rounded-md px-1.5 py-0.5 font-mono text-[11px] whitespace-nowrap tabular-nums",
+									impact > 0 && "bg-gain-muted text-gain",
+									impact < 0 && "bg-loss-muted text-loss",
+									impact === 0 && "bg-muted text-muted-foreground",
+								)}
+							>
+								{stock} {impact > 0 ? "+" : ""}
+								{impact}%
+							</span>
+						))}
+					</div>
+				);
 			},
 		},
 		{
 			accessorKey: "isReleased",
 			header: "Status",
 			cell: (info) => {
-				const value = info.getValue<boolean>();
-				return value ? (
-					<Badge variant="default">Released</Badge>
+				return info.getValue<boolean>() ? (
+					<Badge variant="outline" className="border-gain/30 bg-gain-muted text-gain">
+						Released
+					</Badge>
 				) : (
-					<Badge variant="secondary">Hidden</Badge>
+					<Badge variant="outline" className="border-dashed text-muted-foreground">
+						Not released
+					</Badge>
 				);
 			},
 		},
 		{
 			accessorKey: "created_at",
 			header: "Created",
-			cell: (info) => new Date(info.getValue<string>()).toLocaleString(),
+			cell: (info) => (
+				<span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
+					{new Date(info.getValue<string>()).toLocaleString("en-IN")}
+				</span>
+			),
 		},
 		{
 			id: "actions",
 			header: "",
 			cell: ({ row }) => (
-				<div className="flex items-center gap-2">
+				<div className="flex items-center justify-end gap-2">
 					<Button
 						variant="outline"
 						size="sm"
@@ -345,7 +372,7 @@ function RouteComponent() {
 						) : (
 							<Send data-icon="inline-start" />
 						)}
-						Release Now
+						Release now
 					</Button>
 					<Button
 						variant="outline"
@@ -421,23 +448,24 @@ function RouteComponent() {
 	}
 
 	if (newsQuery.isError) {
-		return <div className="p-4">Failed to load news.</div>;
+		return (
+			<div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+				Could not load the news.
+			</div>
+		);
 	}
 
 	return (
-		<div className="w-full p-4">
-			<div className="mb-4 flex items-center justify-between gap-4">
-				<div>
-					<h1 className="text-2xl font-bold">News Admin Dashboard</h1>
-					<p className="text-sm text-muted-foreground">
-						Manage published news updates and stock impact metadata.
-					</p>
-				</div>
+		<div className="flex flex-col gap-4">
+			<PageHeader
+				title="News"
+				description="Write headlines, schedule them, and set how each one moves prices."
+				action={
 				<Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
 					<DialogTrigger asChild>
 						<Button>
 							<Plus data-icon="inline-start" />
-							Add News
+							Add news
 						</Button>
 					</DialogTrigger>
 					<DialogContent>
@@ -491,7 +519,7 @@ function RouteComponent() {
 								<FieldLabel>Affected Stocks (JSON)</FieldLabel>
 								<Textarea
 									rows={4}
-									placeholder='{"AAPL": 1.2, "MSFT": -0.8}'
+									placeholder='{"RELIANCE": 4, "INFY": -2.5}'
 									value={addForm.affectedStocksText}
 									onChange={(e) =>
 										setAddForm((prev) => ({
@@ -539,36 +567,24 @@ function RouteComponent() {
 						</DialogFooter>
 					</DialogContent>
 				</Dialog>
+				}
+			/>
+
+			<div className="grid grid-cols-1 gap-4 rounded-xl border p-4 sm:grid-cols-[auto_minmax(0,1fr)]">
+				<Stat label="Stories" value={newsRows.length} />
+				<Stat
+					label="Latest"
+					value={<span className="font-sans text-sm">{latestNewsTitle}</span>}
+				/>
 			</div>
 
-			<div className="mb-4 grid gap-4 md:grid-cols-2">
-				<Card>
-					<CardHeader>
-						<CardTitle>Total News</CardTitle>
-						<CardDescription>Total count of news posts</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<div className="text-3xl font-bold">{newsRows.length}</div>
-					</CardContent>
-				</Card>
-				<Card>
-					<CardHeader>
-						<CardTitle>Latest News Title</CardTitle>
-						<CardDescription>Most recently released title</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<p className="line-clamp-2 font-medium">{latestNewsTitle}</p>
-					</CardContent>
-				</Card>
-			</div>
-
-			<div className="rounded-md border">
+			<div className="overflow-x-auto rounded-lg border">
 				<Table>
 					<TableHeader>
 						{table.getHeaderGroups().map((headerGroup) => (
-							<TableRow key={headerGroup.id}>
+							<TableRow key={headerGroup.id} className="hover:bg-transparent">
 								{headerGroup.headers.map((header) => (
-									<TableHead key={header.id}>
+									<TableHead key={header.id} className="h-9 text-xs">
 										{header.isPlaceholder
 											? null
 											: flexRender(
@@ -585,7 +601,7 @@ function RouteComponent() {
 							table.getRowModel().rows.map((row) => (
 								<TableRow key={row.id}>
 									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id}>
+										<TableCell key={cell.id} className="py-2">
 											{flexRender(
 												cell.column.columnDef.cell,
 												cell.getContext(),
@@ -598,7 +614,7 @@ function RouteComponent() {
 							<TableRow>
 								<TableCell
 									colSpan={columns.length}
-									className="h-24 text-center"
+									className="h-24 text-center text-muted-foreground"
 								>
 									No news available.
 								</TableCell>
@@ -659,7 +675,7 @@ function RouteComponent() {
 							<FieldLabel>Affected Stocks (JSON)</FieldLabel>
 							<Textarea
 								rows={4}
-								placeholder='{"AAPL": 1.2, "MSFT": -0.8}'
+								placeholder='{"RELIANCE": 4, "INFY": -2.5}'
 								value={editForm.affectedStocksText}
 								onChange={(e) =>
 									setEditForm((prev) => ({
@@ -695,15 +711,6 @@ function RouteComponent() {
 				</DialogContent>
 			</Dialog>
 
-			{newsRows.length > 0 && (
-				<div className="mt-4 flex flex-wrap gap-2">
-					{Object.keys(newsRows[0].affected_stocks ?? {}).map((stockId) => (
-						<Badge key={stockId} variant="secondary">
-							{stockId}
-						</Badge>
-					))}
-				</div>
-			)}
 		</div>
 	);
 }

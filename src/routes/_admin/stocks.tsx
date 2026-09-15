@@ -12,7 +12,9 @@ import {
 	ArrowDown,
 	ArrowDownUp,
 	ArrowUp,
+	Lock,
 	MoreVertical,
+	Plus,
 	Trash2,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useState } from "react";
@@ -23,6 +25,9 @@ import {
 	getAllStockPrices,
 	getAllStocks,
 } from "#/api/stocks";
+import { PageHeader } from "#/components/page-header";
+import { StockLogo } from "#/components/stock-logo";
+import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import { ButtonGroup } from "#/components/ui/button-group";
 import { Checkbox } from "#/components/ui/checkbox";
@@ -69,6 +74,7 @@ import {
 } from "#/components/ui/table";
 import useSocket from "#/hooks/use-socket";
 import { type AdminTableFeatures, adminTableFeatures } from "#/lib/table";
+import { cn } from "#/lib/utils";
 import type { Stock, StockOHLC } from "#/types/stock";
 
 export const Route = createFileRoute("/_admin/stocks")({
@@ -83,9 +89,9 @@ type StockRow = Stock & {
 const MemoizedRow = memo(
 	({ row }: { row: Row<AdminTableFeatures, StockRow> }) => {
 		return (
-			<TableRow>
+			<TableRow data-state={row.getIsSelected() ? "selected" : undefined}>
 				{row.getVisibleCells().map((cell) => (
-					<TableCell key={cell.id}>
+					<TableCell key={cell.id} className="py-2">
 						{flexRender(cell.column.columnDef.cell, cell.getContext())}
 					</TableCell>
 				))}
@@ -164,10 +170,31 @@ function RouteComponent() {
 			{
 				accessorKey: "id",
 				header: "ID",
+				cell: (info) => (
+					<span className="font-mono text-xs text-muted-foreground">
+						{info.getValue() as number}
+					</span>
+				),
 			},
 			{
 				accessorKey: "symbol",
 				header: "Symbol",
+				cell: ({ row }) => (
+					<Link
+						to="/stock/$id"
+						params={{ id: String(row.original.id) }}
+						className="flex items-center gap-2.5 font-mono font-medium hover:underline"
+					>
+						<StockLogo symbol={row.original.symbol} />
+						{row.original.symbol}
+						{row.original.locked && (
+							<Lock
+								className="size-3 text-muted-foreground"
+								aria-label="Trading halted"
+							/>
+						)}
+					</Link>
+				),
 			},
 			{
 				accessorKey: "name",
@@ -176,33 +203,42 @@ function RouteComponent() {
 			{
 				accessorKey: "price",
 				header: ({ column }) => (
-					<Button
-						variant="ghost"
+					<button
+						type="button"
 						onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+						className="inline-flex items-center gap-1 hover:text-foreground"
 					>
 						Price
 						{column.getIsSorted() === "asc" ? (
-							<ArrowUp className="ml-4 h-4 w-4" />
+							<ArrowUp className="size-3" />
 						) : column.getIsSorted() === "desc" ? (
-							<ArrowDown className="ml-4 h-4 w-4" />
+							<ArrowDown className="size-3" />
 						) : (
-							<ArrowDownUp className="ml-4 h-4 w-4" />
+							<ArrowDownUp className="size-3 opacity-50" />
 						)}
-					</Button>
+					</button>
 				),
 				cell: ({ row }) => {
 					const price = row.original.price;
 					const indicator = row.original.indicator;
 					return (
-						<div className="flex items-center gap-2 px-4 font-mono">
-							<span>₹{Number(price)?.toFixed(2) ?? "0.00"}</span>
-							{indicator === "up" && (
-								<ArrowUp className="h-4 w-4 text-green-500" />
+						<div
+							className={cn(
+								"flex items-center gap-1.5 font-mono tabular-nums",
+								indicator === "up" && "text-gain",
+								indicator === "down" && "text-loss",
 							)}
-							{indicator === "down" && (
-								<ArrowDown className="h-4 w-4 text-red-500" />
-							)}
-							{!indicator && <span className="w-4 h-4 inline-block" />}
+						>
+							<span>
+								₹
+								{Number(price).toLocaleString("en-IN", {
+									minimumFractionDigits: 2,
+									maximumFractionDigits: 2,
+								})}
+							</span>
+							{indicator === "up" && <ArrowUp className="size-3.5" />}
+							{indicator === "down" && <ArrowDown className="size-3.5" />}
+							{!indicator && <span className="inline-block size-3.5" />}
 						</div>
 					);
 				},
@@ -211,20 +247,49 @@ function RouteComponent() {
 			{
 				accessorKey: "volatility",
 				header: "Volatility",
+				cell: (info) => (
+					<span className="font-mono tabular-nums">
+						{Number(info.getValue()).toFixed(2)}
+					</span>
+				),
 			},
 			{
 				accessorKey: "sector",
 				header: "Sector",
+				cell: (info) => (
+					<span className="text-muted-foreground">
+						{info.getValue() as string}
+					</span>
+				),
 			},
 			{
 				accessorKey: "created_at",
-				header: "Created At",
-				cell: (info) => new Date(info.getValue() as string).toLocaleString(),
+				header: "Created",
+				cell: (info) => (
+					<span className="font-mono text-xs text-muted-foreground">
+						{new Date(info.getValue() as string).toLocaleString("en-IN")}
+					</span>
+				),
 			},
 			{
 				accessorKey: "locked",
-				header: "Is Locked",
-				cell: (info) => (info.getValue() ? "Yes" : "No"),
+				header: "Trading",
+				cell: (info) =>
+					info.getValue() ? (
+						<Badge
+							variant="outline"
+							className="border-loss/30 bg-loss-muted text-loss"
+						>
+							Halted
+						</Badge>
+					) : (
+						<Badge
+							variant="outline"
+							className="border-gain/30 bg-gain-muted text-gain"
+						>
+							Open
+						</Badge>
+					),
 			},
 			{
 				accessorKey: "actions",
@@ -232,7 +297,11 @@ function RouteComponent() {
 				cell: (info) => (
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="icon">
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								aria-label={`Actions for ${info.row.original.symbol}`}
+							>
 								<MoreVertical />
 							</Button>
 						</DropdownMenuTrigger>
@@ -332,16 +401,25 @@ function RouteComponent() {
 	}
 
 	if (stocks.isError) {
-		return <div>Failed to load stocks.</div>;
+		return (
+			<div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+				Could not load the stocks.
+			</div>
+		);
 	}
 
 	return (
-		<div className="p-4 w-full h-full ">
-			<div className="flex items-center justify-between mb-4">
-				<h2 className="text-2xl font-bold">Stocks</h2>
+		<div className="flex flex-col gap-4">
+			<PageHeader
+				title="Stocks"
+				description={`${stocks.data?.length ?? 0} listed. Prices update live.`}
+				action={
 				<Dialog>
 					<DialogTrigger asChild>
-						<Button>Add Stock</Button>
+						<Button>
+							<Plus data-icon="inline-start" />
+							Add stock
+						</Button>
 					</DialogTrigger>
 					<DialogContent>
 						<form
@@ -468,7 +546,8 @@ function RouteComponent() {
 						</form>
 					</DialogContent>
 				</Dialog>
-			</div>
+				}
+			/>
 
 			{stocks.isPending && (
 				<div className="flex items-center justify-center py-8">
@@ -477,16 +556,16 @@ function RouteComponent() {
 				</div>
 			)}
 			{stocks.isSuccess && (
-				<div className="rounded-md border">
+				<div className="overflow-x-auto rounded-lg border">
 					<Table>
 						<TableHeader>
 							{table.getHeaderGroups().map((headerGroup) => (
-								<TableRow key={headerGroup.id}>
+								<TableRow key={headerGroup.id} className="hover:bg-transparent">
 									{headerGroup.headers.map((header) =>
 										header.isPlaceholder ? null : (
 											<TableHead
 												key={header.id}
-												className="cursor-pointer select-none "
+												className="h-9 text-xs select-none"
 											>
 												<div className="flex items-center justify-between gap-1">
 													{flexRender(
@@ -506,20 +585,24 @@ function RouteComponent() {
 							))}
 						</TableBody>
 					</Table>
-					<FieldDescription className="p-4">
+					<FieldDescription className="border-t px-4 py-3">
 						{Object.keys(rowSelection).length} of{" "}
 						{table.getPreFilteredRowModel().rows.length} rows selected.
 					</FieldDescription>
 				</div>
 			)}
 			{table.getFilteredSelectedRowModel().rows.length > 0 && (
-				//align to center bottom of the screen
-				<div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 dark:border backdrop-blur-sm bg-white/8 p-2 rounded-xl shadow-md flex items-center gap-4 border">
+				// Clear of the tab bar on phones and centred on the page beside the rail.
+				<div className="fixed bottom-20 left-1/2 z-20 flex -translate-x-1/2 items-center gap-4 rounded-xl border bg-background/90 p-2 pl-4 text-sm shadow-lg backdrop-blur md:bottom-4 md:left-[calc(50%+6.5rem)]">
 					{table.getFilteredSelectedRowModel().rows.length} of{" "}
 					{table.getPreFilteredRowModel().rows.length} rows selected.
 					<ButtonGroup>
 						<ButtonGroup>
-							<Button variant="destructive" size="icon">
+							<Button
+								variant="destructive"
+								size="icon"
+								aria-label="Delete selected"
+							>
 								<Trash2 />
 							</Button>
 						</ButtonGroup>

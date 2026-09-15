@@ -1,9 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Eye, EyeOff, GalleryVerticalEnd } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { type SubmitEvent, useState } from "react";
 import { toast } from "sonner";
-import placeholder from "#/assets/placeholder.svg";
+import { AuthLayout } from "#/components/auth-layout";
 import { Button } from "#/components/ui/button";
 import {
 	Dialog,
@@ -20,7 +20,6 @@ import {
 } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import { authClient } from "#/lib/auth-client";
-import { cn } from "#/lib/utils";
 import {
 	InputOTP,
 	InputOTPGroup,
@@ -29,10 +28,7 @@ import {
 } from "./ui/input-otp";
 import { Spinner } from "./ui/spinner";
 
-export function SignupForm({
-	className,
-	...props
-}: React.ComponentProps<"div">) {
+export function SignupForm({ className }: { className?: string }) {
 	const navigate = useNavigate();
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
@@ -106,18 +102,7 @@ export function SignupForm({
 	}
 
 	return (
-		<div className={cn("grid min-h-svh lg:grid-cols-2", className)} {...props}>
-			<div className="flex flex-col gap-4 p-6 md:p-10">
-				<div className="flex justify-center gap-2 md:justify-start">
-					<Link to="/" className="flex items-center gap-2 font-medium">
-						<div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
-							<GalleryVerticalEnd className="size-4" />
-						</div>
-						Bazaar Admin
-					</Link>
-				</div>
-				<div className="flex flex-1 items-center justify-center">
-					<div className="w-full max-w-sm">
+		<AuthLayout className={className}>
 						<form onSubmit={handleSubmit}>
 							<div className="flex flex-col gap-6">
 								<div className="flex flex-col items-center gap-2 text-center">
@@ -272,25 +257,6 @@ export function SignupForm({
 								</div>
 							</div>
 						</form>
-					</div>
-				</div>
-			</div>
-			<div className="relative hidden bg-muted lg:block">
-				<img
-					src={placeholder}
-					alt="Signup visual"
-					className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
-				/>
-				<div className="absolute top-10 right-10 text-white z-10 p-6 mix-blend-difference text-right">
-					<blockquote className="space-y-2">
-						<p className="text-lg font-medium opacity-80 backdrop-invert-0">
-							"Streamlining our operations beautifully, end to end."
-						</p>
-						<footer className="text-sm">- Administrative Desk</footer>
-					</blockquote>
-				</div>
-			</div>
-
 			<Dialog open={showOTPDialog} onOpenChange={setShowOTPDialog}>
 				<DialogContent className="mx-auto w-[335px]">
 					<DialogHeader>
@@ -327,6 +293,6 @@ export function SignupForm({
 					</div>
 				</DialogContent>
 			</Dialog>
-		</div>
+		</AuthLayout>
 	);
 }
