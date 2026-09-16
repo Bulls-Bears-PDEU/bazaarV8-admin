@@ -3,7 +3,13 @@ import useSocket from "#/hooks/use-socket";
 import { cn } from "#/lib/utils";
 import type { MarketState } from "#/types/market";
 
-export function LiveIndicator({ className }: { className?: string }) {
+export function LiveIndicator({
+	className,
+	compact = false,
+}: {
+	className?: string;
+	compact?: boolean;
+}) {
 	const socket = useSocket();
 	const [isConnected, setIsConnected] = useState(socket?.connected || false);
 	const [isPaused, setIsPaused] = useState(false);
@@ -14,7 +20,8 @@ export function LiveIndicator({ className }: { className?: string }) {
 		const onConnect = () => setIsConnected(true);
 		const onDisconnect = () => setIsConnected(false);
 		// The server sends the market state on connect and on every admin change.
-		const onMarketStateUpdate = (state: MarketState) => setIsPaused(state.is_paused);
+		const onMarketStateUpdate = (state: MarketState) =>
+			setIsPaused(state.is_paused);
 
 		// Always sync state when socket reference changes or mounts
 		setIsConnected(socket.connected);
@@ -35,7 +42,12 @@ export function LiveIndicator({ className }: { className?: string }) {
 
 	return (
 		<div
-			className={cn("flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium", className)}
+			className={cn(
+				"flex items-center gap-2 rounded-full border text-xs font-medium",
+				// Collapsed to a dot on the icon rail; the label is read out instead.
+				compact ? "size-6 justify-center p-0" : "px-2.5 py-1",
+				className,
+			)}
 			role="status"
 		>
 			<span className="relative flex size-2">
@@ -51,7 +63,7 @@ export function LiveIndicator({ className }: { className?: string }) {
 					)}
 				/>
 			</span>
-			{label}
+			{compact ? <span className="sr-only">{label}</span> : label}
 		</div>
 	);
 }

@@ -31,8 +31,11 @@ export const getStock = async (stockId: string) => {
 	return res.data as Stock;
 };
 
-export const getStockOhlc = async (stockId: string) => {
-	const res = await axios.get(`/stocks/getOHLCByStockId/${stockId}`);
+/** `limit` asks for only the most recent that many candles, still oldest first. */
+export const getStockOhlc = async (stockId: string, limit?: number) => {
+	const res = await axios.get(`/stocks/getOHLCByStockId/${stockId}`, {
+		params: limit === undefined ? undefined : { limit },
+	});
 	return res.data as StockOHLC[];
 };
 

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { ErrorState } from "./components/error-state";
 import { ThemeProvider } from "./components/theme-provider";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { applyA11yPrefs } from "./lib/a11y";
@@ -14,6 +15,9 @@ const router = createRouter({
 	routeTree,
 	defaultPreload: "intent",
 	scrollRestoration: true,
+	// An unreachable server is the common failure, and "Failed to fetch" tells
+	// nobody anything: every route explains it the same way instead.
+	defaultErrorComponent: ErrorState,
 });
 
 declare module "@tanstack/react-router" {

@@ -1,74 +1,54 @@
 import type { ReactNode } from "react";
+import { AccessibilityMenu } from "#/components/accessibility-menu";
+import { MarketStrip } from "#/components/auth/market-strip";
 import { Brand } from "#/components/brand";
+import { ModeToggle } from "#/components/mode-toggle";
 import { cn } from "#/lib/utils";
 
-// A stylised session: enough shape to read as a market, not a real chart.
-const BARS = [
-	[40, 62, 36, 58],
-	[58, 70, 52, 54],
-	[54, 66, 48, 64],
-	[64, 72, 60, 61],
-	[61, 64, 44, 47],
-	[47, 55, 40, 52],
-	[52, 68, 50, 66],
-	[66, 80, 63, 77],
-	[77, 79, 64, 68],
-	[68, 74, 58, 72],
-	[72, 88, 70, 85],
-	[85, 92, 78, 81],
-];
-
-function MarketArt() {
-	const width = 12 * 24;
-	const y = (v: number) => 100 - v;
+/**
+ * The same split screen as the player app's sign in, with an organiser's
+ * pitch: the form on the left, and on wide screens candlestick charts drifting
+ * above it. Display settings are reachable before signing in.
+ */
+export function AuthLayout({
+	children,
+	className,
+}: {
+	children: ReactNode;
+	className?: string;
+}) {
 	return (
-		<svg viewBox={`0 0 ${width} 100`} className="w-full max-w-md" aria-hidden="true">
-			{BARS.map(([open, high, low, close], i) => {
-				const x = i * 24 + 12;
-				const up = close >= open;
-				const color = up ? "var(--gain)" : "var(--loss)";
-				return (
-					<g key={x}>
-						<line x1={x} x2={x} y1={y(high)} y2={y(low)} stroke={color} strokeWidth="1.5" />
-						<rect
-							x={x - 6}
-							width="12"
-							y={y(Math.max(open, close))}
-							height={Math.max(Math.abs(close - open), 1.5)}
-							rx="1.5"
-							fill={up ? color : "none"}
-							stroke={color}
-							strokeWidth="1.5"
-						/>
-					</g>
-				);
-			})}
-		</svg>
-	);
-}
-
-/** The same split screen as the player app's sign in, with an organiser's pitch. */
-export function AuthLayout({ children, className }: { children: ReactNode; className?: string }) {
-	return (
-		<div className={cn("grid min-h-svh lg:grid-cols-2", className)}>
-			<div className="flex flex-col gap-4 p-6 md:p-10">
-				<div className="flex justify-center md:justify-start">
+		<div
+			className={cn(
+				"grid min-h-svh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]",
+				className,
+			)}
+		>
+			<div className="flex flex-col px-6 py-5 sm:px-10">
+				<header className="flex items-center justify-between gap-3">
 					<Brand />
-				</div>
-				<div className="flex flex-1 items-center justify-center">
-					<div className="w-full max-w-sm">{children}</div>
-				</div>
+					<div className="flex items-center gap-1">
+						<AccessibilityMenu />
+						<ModeToggle />
+					</div>
+				</header>
+				<main
+					id="main"
+					className="flex flex-1 items-center justify-center py-10"
+				>
+					<div className="w-full max-w-[25rem]">{children}</div>
+				</main>
 			</div>
-			<div className="relative hidden flex-col justify-between overflow-hidden border-l bg-muted/40 p-10 lg:flex">
-				<p className="font-mono text-xs tracking-widest text-muted-foreground uppercase">
-					Bulls &amp; Bears PDEU · Control room
-				</p>
-				<MarketArt />
-				<div className="max-w-md space-y-2">
-					<p className="text-2xl font-semibold tracking-tight text-balance">Run the market from one place.</p>
-					<p className="text-sm text-pretty text-muted-foreground">
-						Steer sentiment, pause trading, release news, list IPOs and approve players while the
-						leaderboard moves live.
+
+			<div className="hidden min-h-0 flex-col gap-10 overflow-hidden border-l bg-muted/40 p-10 lg:flex xl:p-14">
+				<MarketStrip className="-mx-10 min-h-0 flex-1 px-10 xl:-mx-14 xl:px-14" />
+				<div className="flex flex-col gap-4">
+					<p className="max-w-[18ch] text-5xl leading-[1.02] font-semibold tracking-tight text-balance">
+						Run the market from one place.
+					</p>
+					<p className="max-w-[44ch] text-lg text-pretty text-muted-foreground">
+						Steer sentiment, pause trading, release news, list IPOs and approve
+						players while the leaderboard moves live.
 					</p>
 				</div>
 			</div>

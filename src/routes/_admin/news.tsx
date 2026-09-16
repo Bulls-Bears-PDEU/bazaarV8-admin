@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { type ColumnDef, flexRender, useTable } from "@tanstack/react-table";
-import { EyeOff, PencilLine, Plus, Send } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, Eye, EyeOff, MoreHorizontal, PencilLine, Plus, Send, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { addNews, getAllNews, type NewsPayload, updateNews } from "#/api/news";
+import { addNews, deleteNews, getAllNews, newsErrorMessage, setNewsReleased, updateNews } from "#/api/news";
+import { NewsEditor } from "#/components/news-editor";
 import { PageHeader } from "#/components/page-header";
 import { Stat } from "#/components/stat";
 import { Badge } from "#/components/ui/badge";
@@ -16,437 +16,121 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from "#/components/ui/dialog";
 import {
-	Field,
-	FieldDescription,
-	FieldGroup,
-	FieldLabel,
-} from "#/components/ui/field";
-import { Input } from "#/components/ui/input";
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "#/components/ui/dropdown-menu";
 import { Loading } from "#/components/ui/loading";
 import { Spinner } from "#/components/ui/spinner";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "#/components/ui/table";
-import { Textarea } from "#/components/ui/textarea";
-import { type AdminTableFeatures, adminTableFeatures } from "#/lib/table";
+import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
+import useSocket from "#/hooks/use-socket";
+import { formatCountdown, formatDateTime, formatDuration } from "#/lib/format";
 import { cn } from "#/lib/utils";
-import type { News } from "#/types/news";
+import type { News, NewsPayload } from "#/types/news";
 
 export const Route = createFileRoute("/_admin/news")({
 	component: RouteComponent,
 });
 
-type NewsFormState = {
-	title: string;
-	content: string;
-	releaseAfterMinutes: string;
-	affectedStocksText: string;
+const NEWS_KEY = ["admin-news"];
+const MAX_CHIPS = 4;
+
+type Status = "live" | "scheduled" | "hidden";
+type Filter = "all" | Status;
+
+const statusOf = (news: News): Status =>
+	news.isReleased ? "live" : news.first_released_at ? "hidden" : "scheduled";
+
+/** Re-renders every `ms` so countdowns stay current. */
+const useNow = (ms: number) => {
+	const [now, setNow] = useState(() => Date.now());
+	useEffect(() => {
+		const timer = setInterval(() => setNow(Date.now()), ms);
+		return () => clearInterval(timer);
+	}, [ms]);
+	return now;
 };
-
-const EMPTY_FORM: NewsFormState = {
-	title: "",
-	content: "",
-	releaseAfterMinutes: "",
-	affectedStocksText: "",
-};
-
-function parseAffectedStocks(input: string): Record<string, number> {
-	const trimmed = input.trim();
-	if (!trimmed) {
-		return {};
-	}
-
-	let parsedJson: unknown;
-	try {
-		parsedJson = JSON.parse(trimmed);
-	} catch {
-		throw new Error(
-			'Affected stocks must be a valid JSON object, e.g. {"RELIANCE": 4, "INFY": -2.5}',
-		);
-	}
-
-	if (
-		!parsedJson ||
-		typeof parsedJson !== "object" ||
-		Array.isArray(parsedJson)
-	) {
-		throw new Error("Affected stocks must be a JSON object.");
-	}
-
-	const affectedStocks: Record<string, number> = {};
-	for (const [stockId, impactValue] of Object.entries(parsedJson)) {
-		const impact = Number(impactValue);
-		if (Number.isNaN(impact)) {
-			throw new Error(`Impact for ${stockId} must be a valid number.`);
-		}
-		affectedStocks[stockId] = impact;
-	}
-
-	return affectedStocks;
-}
-
-function formatAffectedStocks(affected: Record<string, number> | undefined) {
-	if (!affected || Object.keys(affected).length === 0) {
-		return "{}";
-	}
-
-	return JSON.stringify(affected, null, 2);
-}
-
-function resolveReleaseAt(form: NewsFormState) {
-	if (form.releaseAfterMinutes.trim()) {
-		const minutes = Number(form.releaseAfterMinutes);
-		if (!Number.isFinite(minutes) || minutes < 0) {
-			throw new Error(
-				"Release-after time must be a valid non-negative number.",
-			);
-		}
-
-		return {
-			releaseAt: new Date(Date.now() + minutes * 60 * 1000).toISOString(),
-			isReleased: minutes === 0,
-		};
-	}
-
-	return {
-		releaseAt: new Date().toISOString(),
-		isReleased: true,
-	};
-}
-
-function getReleasePreview(minutesInput: string) {
-	const trimmed = minutesInput.trim();
-	if (!trimmed) {
-		return `Will release immediately at ${new Date().toLocaleString()}`;
-	}
-
-	const minutes = Number(trimmed);
-	if (!Number.isFinite(minutes) || minutes < 0) {
-		return "Enter a valid non-negative number of minutes.";
-	}
-
-	const releaseTime = new Date(Date.now() + minutes * 60 * 1000);
-	return `Will release at ${releaseTime.toLocaleString()}`;
-}
-
-function toNewsPayload(form: NewsFormState, releaseNow = false): NewsPayload {
-	const releaseInfo = releaseNow
-		? { releaseAt: new Date().toISOString(), isReleased: true }
-		: resolveReleaseAt(form);
-
-	if (!form.title.trim()) {
-		throw new Error("Title is required.");
-	}
-
-	if (!form.content.trim()) {
-		throw new Error("Content is required.");
-	}
-
-	return {
-		title: form.title.trim(),
-		content: form.content.trim(),
-		isReleased: releaseInfo.isReleased,
-		release_at: releaseInfo.releaseAt,
-		affected_stocks: parseAffectedStocks(form.affectedStocksText),
-	};
-}
 
 function RouteComponent() {
 	const queryClient = useQueryClient();
-	const [isAddOpen, setIsAddOpen] = useState(false);
-	const [isEditOpen, setIsEditOpen] = useState(false);
-	const [addForm, setAddForm] = useState<NewsFormState>(EMPTY_FORM);
-	const [editForm, setEditForm] = useState<NewsFormState>(EMPTY_FORM);
-	const [editingNewsId, setEditingNewsId] = useState<number | null>(null);
-	const [releasingNewsId, setReleasingNewsId] = useState<number | null>(null);
-	const [unreleasingNewsId, setUnreleasingNewsId] = useState<number | null>(
-		null,
+	const socket = useSocket();
+	const now = useNow(1000);
+	const [editor, setEditor] = useState<{ open: boolean; news: News | null }>({ open: false, news: null });
+	const [confirmDelete, setConfirmDelete] = useState<News | null>(null);
+	const [filter, setFilter] = useState<Filter>("all");
+
+	const newsQuery = useQuery({ queryKey: NEWS_KEY, queryFn: getAllNews });
+
+	// Scheduled stories go out on the server's clock, and other admins edit too.
+	useEffect(() => {
+		if (!socket) return;
+		const refresh = () => queryClient.invalidateQueries({ queryKey: NEWS_KEY });
+		socket.on("newsChanged", refresh);
+		return () => {
+			socket.off("newsChanged", refresh);
+		};
+	}, [socket, queryClient]);
+
+	const refresh = () => queryClient.invalidateQueries({ queryKey: NEWS_KEY });
+
+	const saveMutation = useMutation({
+		mutationFn: ({ id, payload }: { id: number | null; payload: NewsPayload }) =>
+			id === null ? addNews(payload) : updateNews(id, payload),
+		onSuccess: async (saved, { id }) => {
+			// A time already past releases the story on save, as "now" does.
+			const justReleased = saved.first_released_at !== null && !editor.news?.first_released_at;
+			toast.success(
+				justReleased
+					? "Story released. Its impact has started."
+					: id === null
+						? `Story scheduled for ${formatDateTime(saved.release_at)}.`
+						: "Story saved.",
+			);
+			setEditor({ open: false, news: null });
+			await refresh();
+		},
+		onError: (error) => toast.error(newsErrorMessage(error, "Could not save the story.")),
+	});
+
+	const releaseMutation = useMutation({
+		mutationFn: ({ id, release }: { id: number; release: boolean }) => setNewsReleased(id, release),
+		onSuccess: async (_, { release }) => {
+			toast.success(release ? "Story is live." : "Story hidden from players.");
+			await refresh();
+		},
+		onError: (error) => toast.error(newsErrorMessage(error, "Could not change the story.")),
+	});
+
+	const deleteMutation = useMutation({
+		mutationFn: (id: number) => deleteNews(id),
+		onSuccess: async () => {
+			toast.success("Story deleted.");
+			setConfirmDelete(null);
+			await refresh();
+		},
+		onError: (error) => toast.error(newsErrorMessage(error, "Could not delete the story.")),
+	});
+
+	const stories = newsQuery.data ?? [];
+	const counts = useMemo(() => {
+		const tally = { live: 0, scheduled: 0, hidden: 0 };
+		for (const story of stories) tally[statusOf(story)] += 1;
+		return tally;
+	}, [stories]);
+	const nextScheduled = useMemo(
+		() =>
+			stories
+				.filter((story) => statusOf(story) === "scheduled")
+				.sort((a, b) => new Date(a.release_at).getTime() - new Date(b.release_at).getTime())[0],
+		[stories],
 	);
+	const visible = filter === "all" ? stories : stories.filter((story) => statusOf(story) === filter);
 
-	const newsQuery = useQuery({
-		queryKey: ["admin-news"],
-		queryFn: getAllNews,
-	});
-
-	const addNewsMutation = useMutation({
-		mutationFn: addNews,
-		onSuccess: async () => {
-			toast.success("News added successfully.");
-			setAddForm(EMPTY_FORM);
-			setIsAddOpen(false);
-			await queryClient.invalidateQueries({ queryKey: ["admin-news"] });
-		},
-		onError: (error) => {
-			toast.error(error.message || "Failed to add news.");
-		},
-	});
-
-	const updateNewsMutation = useMutation({
-		mutationFn: ({
-			id,
-			payload,
-		}: {
-			id: number;
-			payload: Partial<NewsPayload>;
-		}) => updateNews(id, payload),
-		onSuccess: async () => {
-			toast.success("News updated successfully.");
-			setIsEditOpen(false);
-			setEditingNewsId(null);
-			await queryClient.invalidateQueries({ queryKey: ["admin-news"] });
-		},
-		onError: (error) => {
-			toast.error(error.message || "Failed to update news.");
-		},
-	});
-
-	const releaseNowMutation = useMutation({
-		mutationFn: (id: number) =>
-			updateNews(id, {
-				isReleased: true,
-				release_at: new Date().toISOString(),
-			}),
-		onMutate: (id) => {
-			setReleasingNewsId(id);
-		},
-		onSuccess: async () => {
-			toast.success("News released successfully.");
-			await queryClient.invalidateQueries({ queryKey: ["admin-news"] });
-		},
-		onError: (error) => {
-			toast.error(error.message || "Failed to release news.");
-		},
-		onSettled: () => {
-			setReleasingNewsId(null);
-		},
-	});
-
-	const unreleaseMutation = useMutation({
-		mutationFn: (id: number) =>
-			updateNews(id, {
-				isReleased: false,
-			}),
-		onMutate: (id) => {
-			setUnreleasingNewsId(id);
-		},
-		onSuccess: async () => {
-			toast.success("News hidden successfully.");
-			await queryClient.invalidateQueries({ queryKey: ["admin-news"] });
-		},
-		onError: (error) => {
-			toast.error(error.message || "Failed to unrelease news.");
-		},
-		onSettled: () => {
-			setUnreleasingNewsId(null);
-		},
-	});
-
-	const newsRows = useMemo(() => {
-		const rows = newsQuery.data ?? [];
-		return [...rows].sort(
-			(a, b) =>
-				new Date(b.release_at).getTime() - new Date(a.release_at).getTime(),
-		);
-	}, [newsQuery.data]);
-
-	const latestNewsTitle = newsRows[0]?.title ?? "No news published yet";
-
-	const openEditDialog = (news: News) => {
-		setEditingNewsId(news.id);
-		setEditForm({
-			title: news.title,
-			content: news.content,
-			releaseAfterMinutes: "",
-			affectedStocksText: formatAffectedStocks(news.affected_stocks),
-		});
-		setIsEditOpen(true);
-	};
-
-	const columns: ColumnDef<AdminTableFeatures, News>[] = [
-		{
-			accessorKey: "title",
-			header: "Title",
-			cell: (info) => {
-				const value = info.getValue<string>();
-				return (
-					<div className="max-w-[22rem] truncate font-medium" title={value}>
-						{value}
-					</div>
-				);
-			},
-		},
-		{
-			accessorKey: "release_at",
-			header: "Releases",
-			cell: (info) => (
-				<span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
-					{new Date(info.getValue<string>()).toLocaleString("en-IN")}
-				</span>
-			),
-		},
-		{
-			id: "affectedStocks",
-			header: "Impact",
-			cell: ({ row }) => {
-				const impacts = Object.entries(row.original.affected_stocks ?? {});
-				if (impacts.length === 0) {
-					return <span className="text-muted-foreground">None</span>;
-				}
-				return (
-					<div className="flex max-w-[18rem] flex-wrap gap-1">
-						{impacts.map(([stock, impact]) => (
-							<span
-								key={stock}
-								className={cn(
-									"rounded-md px-1.5 py-0.5 font-mono text-[11px] whitespace-nowrap tabular-nums",
-									impact > 0 && "bg-gain-muted text-gain",
-									impact < 0 && "bg-loss-muted text-loss",
-									impact === 0 && "bg-muted text-muted-foreground",
-								)}
-							>
-								{stock} {impact > 0 ? "+" : ""}
-								{impact}%
-							</span>
-						))}
-					</div>
-				);
-			},
-		},
-		{
-			accessorKey: "isReleased",
-			header: "Status",
-			cell: (info) => {
-				return info.getValue<boolean>() ? (
-					<Badge variant="outline" className="border-gain/30 bg-gain-muted text-gain">
-						Released
-					</Badge>
-				) : (
-					<Badge variant="outline" className="border-dashed text-muted-foreground">
-						Not released
-					</Badge>
-				);
-			},
-		},
-		{
-			accessorKey: "created_at",
-			header: "Created",
-			cell: (info) => (
-				<span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
-					{new Date(info.getValue<string>()).toLocaleString("en-IN")}
-				</span>
-			),
-		},
-		{
-			id: "actions",
-			header: "",
-			cell: ({ row }) => (
-				<div className="flex items-center justify-end gap-2">
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => openEditDialog(row.original)}
-					>
-						<PencilLine data-icon="inline-start" />
-						Edit
-					</Button>
-					<Button
-						variant="secondary"
-						size="sm"
-						onClick={() => releaseNowMutation.mutate(row.original.id)}
-						disabled={
-							releaseNowMutation.isPending &&
-							releasingNewsId === row.original.id
-						}
-					>
-						{releaseNowMutation.isPending &&
-						releasingNewsId === row.original.id ? (
-							<Spinner data-icon="inline-start" />
-						) : (
-							<Send data-icon="inline-start" />
-						)}
-						Release now
-					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => unreleaseMutation.mutate(row.original.id)}
-						disabled={
-							!row.original.isReleased ||
-							(unreleaseMutation.isPending &&
-								unreleasingNewsId === row.original.id)
-						}
-					>
-						{unreleaseMutation.isPending &&
-						unreleasingNewsId === row.original.id ? (
-							<Spinner data-icon="inline-start" />
-						) : (
-							<EyeOff data-icon="inline-start" />
-						)}
-						Unrelease
-					</Button>
-				</div>
-			),
-		},
-	];
-
-	const table = useTable({
-		features: adminTableFeatures,
-		data: newsRows,
-		columns,
-	});
-
-	const handleAddSubmit = () => {
-		try {
-			addNewsMutation.mutate(toNewsPayload(addForm));
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Invalid form data.",
-			);
-		}
-	};
-
-	const handleAddAndReleaseNow = () => {
-		try {
-			addNewsMutation.mutate(toNewsPayload(addForm, true));
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Invalid form data.",
-			);
-		}
-	};
-
-	const handleEditSubmit = () => {
-		if (!editingNewsId) {
-			return;
-		}
-
-		try {
-			updateNewsMutation.mutate({
-				id: editingNewsId,
-				payload: toNewsPayload(editForm),
-			});
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Invalid form data.",
-			);
-		}
-	};
-
-	const addReleasePreview = getReleasePreview(addForm.releaseAfterMinutes);
-	const editReleasePreview = getReleasePreview(editForm.releaseAfterMinutes);
-
-	if (newsQuery.isLoading) {
-		return <Loading text="Loading news..." />;
-	}
-
+	if (newsQuery.isLoading) return <Loading text="Loading news..." />;
 	if (newsQuery.isError) {
 		return (
 			<div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
@@ -459,258 +143,224 @@ function RouteComponent() {
 		<div className="flex flex-col gap-4">
 			<PageHeader
 				title="News"
-				description="Write headlines, schedule them, and set how each one moves prices."
+				description="Write headlines, schedule them, and choose which stocks they move."
 				action={
-				<Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-					<DialogTrigger asChild>
-						<Button>
-							<Plus data-icon="inline-start" />
-							Add news
-						</Button>
-					</DialogTrigger>
-					<DialogContent>
-						<DialogHeader>
-							<DialogTitle>Add News</DialogTitle>
-							<DialogDescription>
-								Create a new news item and define affected stocks as a JSON
-								object.
-							</DialogDescription>
-						</DialogHeader>
-						<FieldGroup>
-							<Field>
-								<FieldLabel>Title</FieldLabel>
-								<Input
-									value={addForm.title}
-									onChange={(e) =>
-										setAddForm((prev) => ({ ...prev, title: e.target.value }))
-									}
-								/>
-							</Field>
-							<Field>
-								<FieldLabel>Content (Markdown)</FieldLabel>
-								<Textarea
-									rows={6}
-									value={addForm.content}
-									onChange={(e) =>
-										setAddForm((prev) => ({ ...prev, content: e.target.value }))
-									}
-								/>
-							</Field>
-							<Field>
-								<FieldLabel>Release In (minutes)</FieldLabel>
-								<Input
-									type="number"
-									min={0}
-									placeholder="30"
-									value={addForm.releaseAfterMinutes}
-									onChange={(e) =>
-										setAddForm((prev) => ({
-											...prev,
-											releaseAfterMinutes: e.target.value,
-										}))
-									}
-								/>
-								<FieldDescription>
-									Optional. Leave empty to release now.
-								</FieldDescription>
-								<FieldDescription>{addReleasePreview}</FieldDescription>
-							</Field>
-							<Field>
-								<FieldLabel>Affected Stocks (JSON)</FieldLabel>
-								<Textarea
-									rows={4}
-									placeholder='{"RELIANCE": 4, "INFY": -2.5}'
-									value={addForm.affectedStocksText}
-									onChange={(e) =>
-										setAddForm((prev) => ({
-											...prev,
-											affectedStocksText: e.target.value,
-										}))
-									}
-								/>
-								<FieldDescription>
-									Enter a valid JSON object with numeric values.
-								</FieldDescription>
-							</Field>
-						</FieldGroup>
-						<DialogFooter>
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => setIsAddOpen(false)}
-							>
-								Cancel
-							</Button>
-							<Button
-								type="button"
-								onClick={handleAddSubmit}
-								disabled={addNewsMutation.isPending}
-							>
-								{addNewsMutation.isPending && (
-									<Spinner data-icon="inline-start" />
-								)}
-								Create News
-							</Button>
-							<Button
-								type="button"
-								variant="secondary"
-								onClick={handleAddAndReleaseNow}
-								disabled={addNewsMutation.isPending}
-							>
-								{addNewsMutation.isPending ? (
-									<Spinner data-icon="inline-start" />
-								) : (
-									<Send data-icon="inline-start" />
-								)}
-								Release News
-							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</Dialog>
+					<Button onClick={() => setEditor({ open: true, news: null })}>
+						<Plus data-icon="inline-start" />
+						Write story
+					</Button>
 				}
 			/>
 
-			<div className="grid grid-cols-1 gap-4 rounded-xl border p-4 sm:grid-cols-[auto_minmax(0,1fr)]">
-				<Stat label="Stories" value={newsRows.length} />
+			<div className="grid grid-cols-2 gap-4 rounded-xl border p-4 sm:grid-cols-4">
+				<Stat label="Live" value={counts.live} />
+				<Stat label="Scheduled" value={counts.scheduled} />
+				<Stat label="Hidden" value={counts.hidden} />
 				<Stat
-					label="Latest"
-					value={<span className="font-sans text-sm">{latestNewsTitle}</span>}
+					label="Next release"
+					value={nextScheduled ? formatCountdown(nextScheduled.release_at, now) : "—"}
+					hint={nextScheduled?.title}
 				/>
 			</div>
 
-			<div className="overflow-x-auto rounded-lg border">
-				<Table>
-					<TableHeader>
-						{table.getHeaderGroups().map((headerGroup) => (
-							<TableRow key={headerGroup.id} className="hover:bg-transparent">
-								{headerGroup.headers.map((header) => (
-									<TableHead key={header.id} className="h-9 text-xs">
-										{header.isPlaceholder
-											? null
-											: flexRender(
-													header.column.columnDef.header,
-													header.getContext(),
-												)}
-									</TableHead>
-								))}
-							</TableRow>
-						))}
-					</TableHeader>
-					<TableBody>
-						{table.getRowModel().rows.length ? (
-							table.getRowModel().rows.map((row) => (
-								<TableRow key={row.id}>
-									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id} className="py-2">
-											{flexRender(
-												cell.column.columnDef.cell,
-												cell.getContext(),
-											)}
-										</TableCell>
-									))}
-								</TableRow>
-							))
-						) : (
-							<TableRow>
-								<TableCell
-									colSpan={columns.length}
-									className="h-24 text-center text-muted-foreground"
-								>
-									No news available.
-								</TableCell>
-							</TableRow>
-						)}
-					</TableBody>
-				</Table>
-			</div>
+			<ToggleGroup
+				type="single"
+				variant="outline"
+				size="sm"
+				value={filter}
+				onValueChange={(value) => value && setFilter(value as Filter)}
+				className="self-start"
+			>
+				<ToggleGroupItem value="all" className="px-3">
+					All {stories.length}
+				</ToggleGroupItem>
+				<ToggleGroupItem value="live" className="px-3">
+					Live {counts.live}
+				</ToggleGroupItem>
+				<ToggleGroupItem value="scheduled" className="px-3">
+					Scheduled {counts.scheduled}
+				</ToggleGroupItem>
+				<ToggleGroupItem value="hidden" className="px-3">
+					Hidden {counts.hidden}
+				</ToggleGroupItem>
+			</ToggleGroup>
 
-			<Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+			{visible.length === 0 ? (
+				<div className="rounded-lg border border-dashed px-4 py-16 text-center text-sm text-muted-foreground">
+					{stories.length === 0 ? "No stories yet. Write the first one." : "Nothing here."}
+				</div>
+			) : (
+				<ul className="flex flex-col divide-y rounded-lg border">
+					{visible.map((story) => (
+						<StoryRow
+							key={story.id}
+							story={story}
+							now={now}
+							busy={releaseMutation.isPending && releaseMutation.variables?.id === story.id}
+							onEdit={() => setEditor({ open: true, news: story })}
+							onRelease={(release) => releaseMutation.mutate({ id: story.id, release })}
+							onDelete={() => setConfirmDelete(story)}
+						/>
+					))}
+				</ul>
+			)}
+
+			<NewsEditor
+				open={editor.open}
+				onOpenChange={(open) => setEditor((prev) => ({ ...prev, open }))}
+				news={editor.news}
+				saving={saveMutation.isPending}
+				onSave={(payload) => saveMutation.mutate({ id: editor.news?.id ?? null, payload })}
+			/>
+
+			<Dialog open={confirmDelete !== null} onOpenChange={(open) => !open && setConfirmDelete(null)}>
 				<DialogContent>
 					<DialogHeader>
-						<DialogTitle>Update News</DialogTitle>
+						<DialogTitle>Delete this story?</DialogTitle>
 						<DialogDescription>
-							Update title, content, release time, and affected stock impacts.
+							“{confirmDelete?.title}” will be removed for everyone.
+							{confirmDelete?.first_released_at && " Price moves it already caused stay where they are."}
 						</DialogDescription>
 					</DialogHeader>
-					<FieldGroup>
-						<Field>
-							<FieldLabel>Title</FieldLabel>
-							<Input
-								value={editForm.title}
-								onChange={(e) =>
-									setEditForm((prev) => ({ ...prev, title: e.target.value }))
-								}
-							/>
-						</Field>
-						<Field>
-							<FieldLabel>Content (Markdown)</FieldLabel>
-							<Textarea
-								rows={6}
-								value={editForm.content}
-								onChange={(e) =>
-									setEditForm((prev) => ({ ...prev, content: e.target.value }))
-								}
-							/>
-						</Field>
-						<Field>
-							<FieldLabel>Release In (minutes)</FieldLabel>
-							<Input
-								type="number"
-								min={0}
-								placeholder="30"
-								value={editForm.releaseAfterMinutes}
-								onChange={(e) =>
-									setEditForm((prev) => ({
-										...prev,
-										releaseAfterMinutes: e.target.value,
-									}))
-								}
-							/>
-							<FieldDescription>
-								Optional. Leave empty to release now.
-							</FieldDescription>
-							<FieldDescription>{editReleasePreview}</FieldDescription>
-						</Field>
-						<Field>
-							<FieldLabel>Affected Stocks (JSON)</FieldLabel>
-							<Textarea
-								rows={4}
-								placeholder='{"RELIANCE": 4, "INFY": -2.5}'
-								value={editForm.affectedStocksText}
-								onChange={(e) =>
-									setEditForm((prev) => ({
-										...prev,
-										affectedStocksText: e.target.value,
-									}))
-								}
-							/>
-							<FieldDescription>
-								Enter a valid JSON object with numeric values.
-							</FieldDescription>
-						</Field>
-					</FieldGroup>
 					<DialogFooter>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => setIsEditOpen(false)}
-						>
+						<Button variant="outline" onClick={() => setConfirmDelete(null)}>
 							Cancel
 						</Button>
 						<Button
-							type="button"
-							onClick={handleEditSubmit}
-							disabled={updateNewsMutation.isPending}
+							variant="destructive"
+							disabled={deleteMutation.isPending}
+							onClick={() => confirmDelete && deleteMutation.mutate(confirmDelete.id)}
 						>
-							{updateNewsMutation.isPending && (
-								<Spinner data-icon="inline-start" />
-							)}
-							Update News
+							{deleteMutation.isPending && <Spinner data-icon="inline-start" />}
+							Delete
 						</Button>
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-
 		</div>
+	);
+}
+
+function StatusBadge({ story, now }: { story: News; now: number }) {
+	const status = statusOf(story);
+	if (status === "live") {
+		return (
+			<Badge variant="outline" className="border-gain/30 bg-gain-muted text-gain">
+				Live
+			</Badge>
+		);
+	}
+	if (status === "hidden") {
+		return (
+			<Badge variant="outline" className="text-muted-foreground">
+				Hidden
+			</Badge>
+		);
+	}
+	return (
+		<Badge variant="outline" className="border-dashed text-muted-foreground">
+			Scheduled · {formatCountdown(story.release_at, now)}
+		</Badge>
+	);
+}
+
+function StoryRow({
+	story,
+	now,
+	busy,
+	onEdit,
+	onRelease,
+	onDelete,
+}: {
+	story: News;
+	now: number;
+	busy: boolean;
+	onEdit: () => void;
+	onRelease: (release: boolean) => void;
+	onDelete: () => void;
+}) {
+	const status = statusOf(story);
+	const chips = story.impacts.slice(0, MAX_CHIPS);
+	const extra = story.impacts.length - chips.length;
+
+	return (
+		<li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start">
+			<div className="flex min-w-0 flex-1 flex-col gap-1.5">
+				<div className="flex flex-wrap items-center gap-2">
+					<StatusBadge story={story} now={now} />
+					<time className="font-mono text-xs text-muted-foreground" dateTime={story.release_at}>
+						{formatDateTime(story.release_at)}
+					</time>
+				</div>
+				<button type="button" onClick={onEdit} className="text-left font-medium text-pretty hover:underline">
+					{story.title}
+				</button>
+				<p className="line-clamp-1 text-sm text-muted-foreground">{story.content}</p>
+				<div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+					{story.impacts.length === 0 ? (
+						<span className="text-xs text-muted-foreground">No price impact</span>
+					) : (
+						<>
+							{chips.map((impact) => (
+								<span
+									key={impact.stock_id}
+									className={cn(
+										"inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] whitespace-nowrap tabular-nums",
+										impact.impact_pct > 0 ? "bg-gain-muted text-gain" : "bg-loss-muted text-loss",
+									)}
+								>
+									{impact.symbol}
+									{impact.impact_pct > 0 ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
+									{Math.abs(impact.impact_pct)}%
+									<span className="opacity-70">
+										· {formatDuration(impact.duration_seconds ?? story.default_duration_seconds)}
+									</span>
+								</span>
+							))}
+							{extra > 0 && <span className="text-xs text-muted-foreground">+{extra} more</span>}
+						</>
+					)}
+				</div>
+			</div>
+
+			<div className="flex shrink-0 items-center gap-2">
+				{status === "scheduled" && (
+					<Button variant="secondary" size="sm" disabled={busy} onClick={() => onRelease(true)}>
+						{busy ? <Spinner data-icon="inline-start" /> : <Send data-icon="inline-start" />}
+						Release now
+					</Button>
+				)}
+				<Button variant="outline" size="sm" onClick={onEdit}>
+					<PencilLine data-icon="inline-start" />
+					Edit
+				</Button>
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button variant="ghost" size="icon-sm" aria-label={`More actions for ${story.title}`}>
+							<MoreHorizontal />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end">
+						{status === "live" && (
+							<DropdownMenuItem onSelect={() => onRelease(false)}>
+								<EyeOff />
+								Hide from players
+							</DropdownMenuItem>
+						)}
+						{status === "hidden" && (
+							<DropdownMenuItem onSelect={() => onRelease(true)}>
+								<Eye />
+								Show again
+							</DropdownMenuItem>
+						)}
+						{status !== "scheduled" && <DropdownMenuSeparator />}
+						<DropdownMenuItem variant="destructive" onSelect={onDelete}>
+							<Trash2 />
+							Delete
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
+			</div>
+		</li>
 	);
 }

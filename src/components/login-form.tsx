@@ -1,105 +1,95 @@
 import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Eye, EyeOff } from "lucide-react";
-import { type SubmitEvent, useState } from "react";
+import { Mail } from "lucide-react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { AuthHeading, authLinkClass, FormAlert, PasswordField, SubmitButton, TextField } from "#/components/auth/auth-fields";
 import { AuthLayout } from "#/components/auth-layout";
-import { Button } from "#/components/ui/button";
-import { Field, FieldGroup, FieldLabel } from "#/components/ui/field";
-import { Input } from "#/components/ui/input";
 import { authClient } from "#/lib/auth-client";
-import { Spinner } from "./ui/spinner";
+
+const FALLBACK_ERROR = "That email and password do not match an account. Check both and try again.";
 
 export function LoginForm() {
 	const navigate = useNavigate();
-	const [showPassword, setShowPassword] = useState(false);
-	const passwordInputType = showPassword ? "text" : "password";
-	const handleSignin = useMutation({
-		mutationFn: async (e: SubmitEvent<HTMLFormElement>) => {
-			e.preventDefault();
-			return authClient.signIn.email({
-				email: e.target.email.value,
-				password: e.target.password.value,
-			});
-		},
-		onSuccess: (data) => {
-			// Showing the error used to be followed by navigating anyway.
-			if (data.error) {
-				toast.error(data.error.message || "Login failed. Please check your credentials and try again.");
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
+	const [error, setError] = useState<string | null>(null);
+	const passwordRef = useRef<HTMLInputElement>(null);
+
+	const fail = (message: string) => {
+		setError(message);
+		toast.error(message);
+		// Keep the email; the password is usually what was wrong.
+		passwordRef.current?.select();
+	};
+
+	const signIn = useMutation({
+		mutationFn: () => authClient.signIn.email({ email: email.trim(), password }),
+		onSuccess: (result) => {
+			if (result.error) {
+				fail(result.error.message || FALLBACK_ERROR);
 				return;
 			}
-			if (data.data?.redirect) {
-				navigate({ to: data.data.redirect as unknown as string });
-			} else {
-				navigate({ to: "/market" });
-			}
+			navigate({ to: result.data?.redirect ? (result.data.redirect as unknown as string) : "/market" });
 		},
-		onError: (error) => {
-			toast.error("Login failed. Please check your credentials and try again.");
-			console.error("Login failed:", error);
+		onError: (err) => {
+			console.error("Sign in failed:", err);
+			fail("Could not reach the server. Check your connection and try again.");
 		},
 	});
+
 	return (
 		<AuthLayout>
-			<form onSubmit={handleSignin.mutate}>
-				<div className="flex flex-col gap-6">
-					<div className="flex flex-col items-center gap-2 text-center">
-						<h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
-						<p className="text-sm text-balance text-muted-foreground">
-							Sign in with an organiser account to run the market.
-						</p>
-					</div>
-					<FieldGroup>
-						<Field>
-							<FieldLabel htmlFor="email">Email</FieldLabel>
-							<Input id="email" type="email" autoComplete="email" placeholder="you@example.com" required />
-						</Field>
-						<Field>
-							<div className="flex items-center justify-between">
-								<FieldLabel htmlFor="password">Password</FieldLabel>
-								<Link
-									to="/auth/resetpassword"
-									className="text-sm text-muted-foreground hover:text-foreground hover:underline"
-								>
-									Forgot your password?
-								</Link>
-							</div>
-							<div className="relative">
-								<Input
-									id="password"
-									type={passwordInputType}
-									autoComplete="current-password"
-									className="pr-10"
-									required
-								/>
-								<Button
-									aria-label={showPassword ? "Hide password" : "Show password"}
-									className="absolute top-0 right-0 h-full px-3 py-2 text-muted-foreground hover:text-foreground"
-									type="button"
-									variant="ghost"
-									onClick={() => setShowPassword((value) => !value)}
-								>
-									{showPassword ? (
-										<EyeOff className="h-4 w-4" aria-hidden="true" />
-									) : (
-										<Eye className="h-4 w-4" aria-hidden="true" />
-									)}
-								</Button>
-							</div>
-						</Field>
-						<Field>
-							<Button type="submit" className="w-full" disabled={handleSignin.isPending}>
-								{handleSignin.isPending && <Spinner className="mr-2" data-icon="inline-start" />}
-								Sign in
-							</Button>
-						</Field>
-					</FieldGroup>
-					<div className="text-center text-sm">
+			<form
+				noValidate={false}
+				onSubmit={(event) => {
+					event.preventDefault();
+					if (signIn.isPending) return;
+					setError(null);
+					signIn.mutate();
+				}}
+				className="flex flex-col gap-8"
+			>
+				<AuthHeading title="Welcome back" description="Sign in with an organiser account to run the market." />
+
+				<div className="flex flex-col gap-5">
+					<FormAlert message={error} />
+					<TextField
+						label="Email"
+						icon={Mail}
+						name="email"
+						type="email"
+						autoComplete="email"
+						inputMode="email"
+						placeholder="you@example.com"
+						required
+						value={email}
+						onChange={(event) => setEmail(event.target.value)}
+					/>
+					<PasswordField
+						ref={passwordRef}
+						label="Password"
+						name="password"
+						autoComplete="current-password"
+						required
+						value={password}
+						onChange={(event) => setPassword(event.target.value)}
+						labelAside={
+							<Link to="/auth/resetpassword" className={`text-sm ${authLinkClass}`}>
+								Forgot password?
+							</Link>
+						}
+					/>
+				</div>
+
+				<div className="flex flex-col gap-5">
+					<SubmitButton pending={signIn.isPending}>{signIn.isPending ? "Signing in…" : "Sign in"}</SubmitButton>
+					<p className="text-sm text-muted-foreground">
 						Need an organiser account?{" "}
-						<Link to="/auth/signup" className="underline hover:text-primary">
+						<Link to="/auth/signup" className={authLinkClass}>
 							Create one
 						</Link>
-					</div>
+					</p>
 				</div>
 			</form>
 		</AuthLayout>

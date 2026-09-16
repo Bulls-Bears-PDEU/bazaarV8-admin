@@ -6,17 +6,19 @@ import {
 	LogOut,
 	Newspaper,
 	Rocket,
+	ScrollText,
 	Search,
 	Trophy,
 	Users,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
 import { AccessibilityMenu } from "#/components/accessibility-menu";
 import { Brand } from "#/components/brand";
 import { LiveIndicator } from "#/components/live-indicator";
 import { ModeToggle } from "#/components/mode-toggle";
 import { StockSearch } from "#/components/stock-search";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
+import { Button } from "#/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -25,12 +27,31 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "#/components/ui/sheet";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+} from "#/components/ui/sheet";
+import {
+	Sidebar,
+	SidebarContent,
+	SidebarFooter,
+	SidebarHeader,
+	SidebarInset,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
+	SidebarProvider,
+	SidebarTrigger,
+	useSidebar,
+} from "#/components/ui/sidebar";
+import { useSettledPathname } from "#/hooks/use-settled-pathname";
 import { authClient } from "#/lib/auth-client";
 import { cn } from "#/lib/utils";
 
 type NavItem = {
-	to: "/market" | "/stocks" | "/users" | "/ipos" | "/news" | "/leaderboard";
+	to: "/market" | "/stocks" | "/users" | "/ipos" | "/news" | "/leaderboard" | "/actions";
 	label: string;
 	icon: typeof Gauge;
 };
@@ -42,10 +63,13 @@ const NAV: NavItem[] = [
 	{ to: "/ipos", label: "IPOs", icon: Rocket },
 	{ to: "/news", label: "News", icon: Newspaper },
 	{ to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+	{ to: "/actions", label: "Action log", icon: ScrollText },
 ];
 
 // Phones get the four places organisers go most; the rest live under "More".
-const MOBILE_TABS = NAV.filter((item) => ["/market", "/stocks", "/users", "/news"].includes(item.to));
+const MOBILE_TABS = NAV.filter((item) =>
+	["/market", "/stocks", "/users", "/news"].includes(item.to),
+);
 const MOBILE_MORE = NAV.filter((item) => !MOBILE_TABS.includes(item));
 
 const initials = (name: string | undefined) =>
@@ -68,10 +92,11 @@ function UserMenu() {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<button
-					type="button"
+				<Button
+					variant="ghost"
+					size="icon"
 					aria-label="Account"
-					className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+					className="rounded-full p-0"
 				>
 					<Avatar className="size-8">
 						{user?.image && <AvatarImage src={user.image} alt="" />}
@@ -79,12 +104,14 @@ function UserMenu() {
 							{initials(user?.name)}
 						</AvatarFallback>
 					</Avatar>
-				</button>
+				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-56">
 				<DropdownMenuLabel className="flex flex-col">
 					<span className="truncate">{user?.name}</span>
-					<span className="truncate text-xs font-normal text-muted-foreground">{user?.email}</span>
+					<span className="truncate text-xs font-normal text-muted-foreground">
+						{user?.email}
+					</span>
 				</DropdownMenuLabel>
 				<DropdownMenuSeparator />
 				<DropdownMenuItem onClick={signOut}>
@@ -97,19 +124,72 @@ function UserMenu() {
 }
 
 /** The player app's shell for the admin panel: a rail on desktop, a tab bar on phones. */
+/** Does this nav entry cover the page being shown? */
+const matches = (pathname: string, to: string) =>
+	pathname === to || (to === "/stocks" && pathname.startsWith("/stock/"));
+
+/** The cookie SidebarProvider writes, so a reload opens the rail as it was left. */
+const railWasOpen = () =>
+	!/(^|;\s*)sidebar_state=false(;|$)/.test(document.cookie);
+
+/**
+ * The desktop rail. Folded it is icons alone, with each name back on hover;
+ * SidebarProvider keeps that choice in a cookie and binds Ctrl/Cmd+B to it.
+ */
+function NavRail() {
+	const pathname = useRouterState({ select: (s) => s.location.pathname });
+	const collapsed = useSidebar().state === "collapsed";
+
+	return (
+		<Sidebar collapsible="icon">
+			<SidebarHeader className="h-14 justify-center group-data-[collapsible=icon]:items-center">
+				<Brand collapsed={collapsed} />
+			</SidebarHeader>
+			<SidebarContent>
+				<SidebarMenu className="px-2">
+					{NAV.map(({ to, label, icon: Icon }) => {
+						const active = matches(pathname, to);
+						return (
+							<SidebarMenuItem key={to}>
+								<SidebarMenuButton asChild isActive={active} tooltip={label}>
+									<Link to={to} aria-current={active ? "page" : undefined}>
+										<Icon />
+										<span>{label}</span>
+									</Link>
+								</SidebarMenuButton>
+							</SidebarMenuItem>
+						);
+					})}
+				</SidebarMenu>
+			</SidebarContent>
+			<SidebarFooter className="group-data-[collapsible=icon]:items-center">
+				<LiveIndicator
+					compact={collapsed}
+					className={collapsed ? undefined : "w-fit"}
+				/>
+			</SidebarFooter>
+		</Sidebar>
+	);
+}
+
 export function AdminShell({ children }: { children: ReactNode }) {
 	const navigate = useNavigate();
 	const pathname = useRouterState({ select: (s) => s.location.pathname });
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [moreOpen, setMoreOpen] = useState(false);
+	const settledPathname = useSettledPathname();
 
 	// Ctrl+K opens the stock jump from anywhere; "/" too, outside text fields.
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
 			const typing =
 				event.target instanceof HTMLElement &&
-				(event.target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName));
-			if ((event.key === "k" && (event.metaKey || event.ctrlKey)) || (event.key === "/" && !typing)) {
+				(event.target.isContentEditable ||
+					["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName));
+			if (
+				(event.key === "k" && (event.metaKey || event.ctrlKey)) ||
+				(event.key === "/" && !typing)
+			) {
 				event.preventDefault();
 				setSearchOpen(true);
 			}
@@ -118,10 +198,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, []);
 
-	const isActive = (to: string) => pathname === to || (to === "/stocks" && pathname.startsWith("/stock/"));
+	const isActive = (to: string) => matches(pathname, to);
 
 	return (
-		<div className="min-h-svh bg-background">
+		<SidebarProvider
+			defaultOpen={railWasOpen()}
+			// 13rem is the width the rail always had. The folded width is left at
+			// the primitive's 3rem, which is what centres a size-8 icon button
+			// inside the menu's px-2.
+			style={{ "--sidebar-width": "13rem" } as CSSProperties}
+		>
 			{/* The first Tab stop: straight past the navigation to the page. */}
 			<a
 				href="#main"
@@ -129,55 +215,18 @@ export function AdminShell({ children }: { children: ReactNode }) {
 			>
 				Skip to content
 			</a>
-			{/* Desktop rail */}
-			<aside className="fixed inset-y-0 left-0 z-30 hidden w-52 flex-col border-r bg-sidebar md:flex">
-				<div className="flex h-14 items-center px-4">
-					<Brand />
-				</div>
-				<nav className="flex flex-1 flex-col gap-0.5 p-2" aria-label="Main">
-					{NAV.map(({ to, label, icon: Icon }) => {
-						const active = isActive(to);
-						return (
-							<Link
-								key={to}
-								to={to}
-								aria-current={active ? "page" : undefined}
-								className={cn(
-									"group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-									active && "bg-primary/10 font-medium text-foreground hover:bg-primary/15",
-								)}
-							>
-								<span
-									aria-hidden="true"
-									className={cn(
-										"absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary transition-transform duration-200",
-										active ? "scale-y-100" : "scale-y-0",
-									)}
-								/>
-								<Icon
-									className={cn(
-										"size-4 transition-transform duration-200 group-hover:scale-110",
-										active && "text-primary",
-									)}
-								/>
-								{label}
-							</Link>
-						);
-					})}
-				</nav>
-				<div className="border-t p-3">
-					<LiveIndicator className="w-fit" />
-				</div>
-			</aside>
+			<NavRail />
 
-			<div className="md:pl-52">
+			<SidebarInset className="min-w-0 bg-background">
 				{/* Top bar */}
 				<header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur md:px-6">
 					<Brand className="md:hidden" />
-					<button
-						type="button"
+					<SidebarTrigger className="hidden shrink-0 md:flex" />
+					<Button
+						variant="ghost"
+						size="icon"
 						onClick={() => setSearchOpen(true)}
-						className="ml-auto flex size-8 items-center justify-center gap-2 rounded-lg text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:ml-0 md:h-9 md:w-80 md:justify-start md:border md:bg-muted/40 md:px-3"
+						className="ml-auto gap-2 text-muted-foreground md:ml-0 md:h-9 md:w-80 md:justify-start md:border-border md:bg-muted/40 md:px-3"
 						aria-label="Jump to a stock"
 					>
 						<Search className="size-4" />
@@ -185,7 +234,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 						<kbd className="ml-auto hidden rounded border bg-background px-1.5 py-0.5 font-mono text-[10px] md:inline">
 							Ctrl K
 						</kbd>
-					</button>
+					</Button>
 					<div className="hidden flex-1 md:block" />
 					<AccessibilityMenu />
 					<ModeToggle />
@@ -196,14 +245,16 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
 				{/* Wider than the player app: admin tables carry more columns. Room
 				    for the bottom tab bar on phones. */}
-				<main
+				<div
 					id="main"
 					tabIndex={-1}
 					className="mx-auto w-full max-w-screen-2xl px-4 pt-4 pb-24 outline-none md:px-6 md:pt-6 md:pb-10"
 				>
-					{children}
-				</main>
-			</div>
+					<div key={settledPathname} className="animate-page-in">
+						{children}
+					</div>
+				</div>
+			</SidebarInset>
 
 			{/* Mobile tab bar */}
 			<nav
@@ -224,53 +275,56 @@ export function AdminShell({ children }: { children: ReactNode }) {
 						{label}
 					</Link>
 				))}
-				<button
-					type="button"
+				<Button
+					variant="ghost"
 					onClick={() => setMoreOpen(true)}
 					className={cn(
-						"flex flex-col items-center gap-1 py-2 text-[11px] text-muted-foreground",
+						"h-auto flex-col gap-1 rounded-none py-2 text-[11px] font-normal text-muted-foreground",
 						MOBILE_MORE.some((item) => isActive(item.to)) && "text-primary",
 					)}
 				>
 					<Ellipsis className="size-5" />
 					More
-				</button>
+				</Button>
 			</nav>
 
 			<Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-				<SheetContent side="bottom" className="rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+				<SheetContent
+					side="bottom"
+					className="rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+				>
 					<SheetHeader>
 						<SheetTitle>More</SheetTitle>
 					</SheetHeader>
 					<div className="grid gap-1 px-4">
 						{MOBILE_MORE.map(({ to, label, icon: Icon }) => (
-							<button
-								type="button"
+							<Button
+								variant="ghost"
 								key={to}
 								onClick={() => {
 									setMoreOpen(false);
 									navigate({ to });
 								}}
-								className="flex items-center gap-3 rounded-md px-3 py-3 text-sm hover:bg-muted"
+								className="h-auto justify-start gap-3 px-3 py-3 font-normal [&_svg]:text-muted-foreground"
 							>
-								<Icon className="size-4 text-muted-foreground" />
+								<Icon className="size-4" />
 								{label}
-							</button>
+							</Button>
 						))}
-						<button
-							type="button"
+						<Button
+							variant="ghost"
 							onClick={signOut}
-							className="flex items-center gap-3 rounded-md px-3 py-3 text-sm text-loss hover:bg-muted"
+							className="h-auto justify-start gap-3 px-3 py-3 font-normal text-loss hover:text-loss"
 						>
 							<LogOut className="size-4" />
 							Sign out
-						</button>
+						</Button>
 						<LiveIndicator className="mt-2 w-fit" />
 					</div>
 				</SheetContent>
 			</Sheet>
 
 			<StockSearch open={searchOpen} onOpenChange={setSearchOpen} />
-		</div>
+		</SidebarProvider>
 	);
 }

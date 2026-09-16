@@ -20,7 +20,12 @@ import {
 	useState,
 } from "react";
 import { Button } from "#/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "#/components/ui/tooltip";
+import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "#/components/ui/tooltip";
 import { cn } from "#/lib/utils";
 
 type LogicalRange = { from: number; to: number };
@@ -32,7 +37,10 @@ export type ControllableChart = {
 		setVisibleLogicalRange(range: LogicalRange): void;
 		fitContent(): void;
 	};
-	takeScreenshot(addTopLayer?: boolean, includeCrosshair?: boolean): HTMLCanvasElement;
+	takeScreenshot(
+		addTopLayer?: boolean,
+		includeCrosshair?: boolean,
+	): HTMLCanvasElement;
 };
 
 export type ChartTable = {
@@ -57,7 +65,10 @@ const pan = (chart: ControllableChart, direction: -1 | 1) => {
 	const range = scale.getVisibleLogicalRange();
 	if (!range) return;
 	const step = (range.to - range.from) * 0.2 * direction;
-	scale.setVisibleLogicalRange({ from: range.from + step, to: range.to + step });
+	scale.setVisibleLogicalRange({
+		from: range.from + step,
+		to: range.to + step,
+	});
 };
 
 function ControlButton({
@@ -91,7 +102,9 @@ function ControlButton({
 			</TooltipTrigger>
 			<TooltipContent>
 				{label}
-				{shortcut && <kbd className="ml-1.5 font-mono opacity-70">{shortcut}</kbd>}
+				{shortcut && (
+					<kbd className="ml-1.5 font-mono opacity-70">{shortcut}</kbd>
+				)}
 			</TooltipContent>
 		</Tooltip>
 	);
@@ -115,6 +128,7 @@ export function ChartFrame({
 	onViewportChange,
 	className,
 	chartClassName,
+	overlay,
 }: {
 	label: string;
 	chartRef: RefObject<ControllableChart | null>;
@@ -128,6 +142,8 @@ export function ChartFrame({
 	onViewportChange?: () => void;
 	className?: string;
 	chartClassName?: string;
+	/** Shown over the chart's box while it has nothing to draw. */
+	overlay?: ReactNode;
 }) {
 	const frameRef = useRef<HTMLDivElement>(null);
 	const hintId = useId();
@@ -135,7 +151,8 @@ export function ChartFrame({
 	const [fullscreen, setFullscreen] = useState(false);
 
 	useEffect(() => {
-		const onChange = () => setFullscreen(document.fullscreenElement === frameRef.current);
+		const onChange = () =>
+			setFullscreen(document.fullscreenElement === frameRef.current);
 		document.addEventListener("fullscreenchange", onChange);
 		return () => document.removeEventListener("fullscreenchange", onChange);
 	}, []);
@@ -194,16 +211,49 @@ export function ChartFrame({
 	return (
 		<div
 			ref={frameRef}
-			className={cn("flex flex-col gap-2", fullscreen && "h-full bg-background p-4 md:p-6", className)}
+			className={cn(
+				"flex flex-col gap-2",
+				fullscreen && "h-full bg-background p-4 md:p-6",
+				className,
+			)}
 		>
-			<div role="toolbar" aria-label={`${label} controls`} className="flex flex-wrap items-center gap-1">
+			<div
+				role="toolbar"
+				aria-label={`${label} controls`}
+				className="flex flex-wrap items-center gap-1"
+			>
 				{toolbar}
 				<div className="ml-auto flex flex-wrap items-center gap-0.5">
-					<ControlButton icon={ZoomOut} label="Zoom out" shortcut="-" onClick={actions.zoomOut} />
-					<ControlButton icon={ZoomIn} label="Zoom in" shortcut="+" onClick={actions.zoomIn} />
-					<ControlButton icon={ChevronsLeft} label="Scroll back" shortcut="←" onClick={actions.panLeft} />
-					<ControlButton icon={ChevronsRight} label="Scroll forward" shortcut="→" onClick={actions.panRight} />
-					<ControlButton icon={RotateCcw} label="Show everything" shortcut="0" onClick={actions.reset} />
+					<ControlButton
+						icon={ZoomOut}
+						label="Zoom out"
+						shortcut="-"
+						onClick={actions.zoomOut}
+					/>
+					<ControlButton
+						icon={ZoomIn}
+						label="Zoom in"
+						shortcut="+"
+						onClick={actions.zoomIn}
+					/>
+					<ControlButton
+						icon={ChevronsLeft}
+						label="Scroll back"
+						shortcut="←"
+						onClick={actions.panLeft}
+					/>
+					<ControlButton
+						icon={ChevronsRight}
+						label="Scroll forward"
+						shortcut="→"
+						onClick={actions.panRight}
+					/>
+					<ControlButton
+						icon={RotateCcw}
+						label="Show everything"
+						shortcut="0"
+						onClick={actions.reset}
+					/>
 					<span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
 					<ControlButton
 						icon={Table2}
@@ -212,7 +262,11 @@ export function ChartFrame({
 						onClick={actions.toggleTable}
 						pressed={showTable}
 					/>
-					<ControlButton icon={ImageDown} label="Save as image" onClick={actions.download} />
+					<ControlButton
+						icon={ImageDown}
+						label="Save as image"
+						onClick={actions.download}
+					/>
 					<ControlButton
 						icon={fullscreen ? Minimize : Maximize}
 						label={fullscreen ? "Exit full screen" : "Full screen"}
@@ -224,26 +278,34 @@ export function ChartFrame({
 			{legend}
 			{/* Focusable so the keyboard can drive the chart, like the buttons above. */}
 			{/* biome-ignore lint/a11y/useSemanticElements: a canvas chart, not a form group */}
+			{/* The chart's own box, and anything standing in front of it. The
+			    overlay is a sibling rather than a child: the charting library owns
+			    every node inside containerRef and appends its canvases there. */}
 			<div
-				ref={containerRef}
-				// biome-ignore lint/a11y/noNoninteractiveTabindex: the chart responds to keys
-				tabIndex={0}
-				role="group"
-				aria-roledescription="chart"
-				aria-label={label}
-				aria-describedby={hintId}
-				onKeyDown={onKeyDown}
-				// The chart zooms on the wheel itself.
-				onWheel={onViewportChange}
 				className={cn(
-					"relative w-full rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+					"relative w-full",
 					fullscreen ? "min-h-0 flex-1" : "h-64",
 					!fullscreen && chartClassName,
 				)}
-			/>
+			>
+				<div
+					ref={containerRef}
+					// biome-ignore lint/a11y/noNoninteractiveTabindex: the chart responds to keys
+					tabIndex={0}
+					role="group"
+					aria-roledescription="chart"
+					aria-label={label}
+					aria-describedby={hintId}
+					onKeyDown={onKeyDown}
+					// The chart zooms on the wheel itself.
+					onWheel={onViewportChange}
+					className="absolute inset-0 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+				/>
+				{overlay && <div className="absolute inset-0 z-10">{overlay}</div>}
+			</div>
 			<p id={hintId} className="sr-only">
-				Arrow keys scroll, plus and minus or the mouse wheel zoom, 0 shows everything, T shows the data as a table, F goes
-				full screen.
+				Arrow keys scroll, plus and minus or the mouse wheel zoom, 0 shows
+				everything, T shows the data as a table, F goes full screen.
 			</p>
 			{data && (
 				<div className="max-h-72 overflow-auto rounded-md border">
@@ -252,7 +314,14 @@ export function ChartFrame({
 						<thead className="sticky top-0 bg-muted text-muted-foreground">
 							<tr>
 								{data.columns.map((column, index) => (
-									<th key={column} scope="col" className={cn("px-3 py-2 font-medium", index === 0 ? "text-left" : "text-right")}>
+									<th
+										key={column}
+										scope="col"
+										className={cn(
+											"px-3 py-2 font-medium",
+											index === 0 ? "text-left" : "text-right",
+										)}
+									>
 										{column}
 									</th>
 								))}
@@ -265,7 +334,12 @@ export function ChartFrame({
 										<td
 											// biome-ignore lint/suspicious/noArrayIndexKey: cells are positional
 											key={index}
-											className={cn("px-3 py-1.5", index === 0 ? "text-left text-muted-foreground" : "text-right")}
+											className={cn(
+												"px-3 py-1.5",
+												index === 0
+													? "text-left text-muted-foreground"
+													: "text-right",
+											)}
 										>
 											{cell}
 										</td>
@@ -293,41 +367,48 @@ export function ChartToggle<T extends string>({
 	onChange: (value: T) => void;
 }) {
 	return (
-		<fieldset className="m-0 flex min-w-0 items-center rounded-lg border-0 bg-muted p-0.5">
-			<legend className="sr-only">{label}</legend>
+		<ToggleGroup
+			type="single"
+			spacing={0.5}
+			value={value ?? ""}
+			// Radix emits "" when the pressed item is pressed again; a chart always
+			// has a type and a range in force.
+			onValueChange={(next) => next && onChange(next as T)}
+			aria-label={label}
+			className="min-w-0 bg-muted p-0.5"
+		>
 			{options.map((option) => {
-				const active = option.value === value;
 				const Icon = option.icon;
-				const button = (
-					<button
+				const item = (
+					<ToggleGroupItem
 						key={option.value}
-						type="button"
-						aria-pressed={active}
+						value={option.value}
 						aria-label={option.label}
-						onClick={() => onChange(option.value)}
-						className={cn(
-							"flex h-7 min-w-7 items-center justify-center gap-1 rounded-md px-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
-							active && "bg-background text-foreground shadow-sm",
-						)}
+						className="h-7 min-w-7 gap-1 rounded-md px-1.5 text-xs font-medium text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
 					>
 						{Icon ? <Icon className="size-4" /> : option.text}
-					</button>
+					</ToggleGroupItem>
 				);
+				// Icon-only options say what they are on hover; the worded ones read.
 				return Icon ? (
 					<Tooltip key={option.value}>
-						<TooltipTrigger asChild>{button}</TooltipTrigger>
+						<TooltipTrigger asChild>{item}</TooltipTrigger>
 						<TooltipContent>{option.label}</TooltipContent>
 					</Tooltip>
 				) : (
-					button
+					item
 				);
 			})}
-		</fieldset>
+		</ToggleGroup>
 	);
 }
 
 /** A chart type remembered per chart, per browser. */
-export function useStoredChoice<T extends string>(key: string, allowed: readonly T[], fallback: T) {
+export function useStoredChoice<T extends string>(
+	key: string,
+	allowed: readonly T[],
+	fallback: T,
+) {
 	const [value, setValue] = useState<T>(() => {
 		try {
 			const stored = localStorage.getItem(`bazaar:chart:${key}`) as T | null;

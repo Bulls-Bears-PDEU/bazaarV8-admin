@@ -13,13 +13,26 @@ import {
 	type SeriesType,
 	type UTCTimestamp,
 } from "lightweight-charts";
-import { ChartArea, ChartCandlestick, ChartLine, ChartNoAxesColumn } from "lucide-react";
+import {
+	ChartArea,
+	ChartCandlestick,
+	ChartLine,
+	ChartNoAxesColumn,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { getStockOhlc } from "#/api/stocks";
-import { ChartFrame, ChartToggle, useStoredChoice } from "#/components/charts/chart-frame";
-import { Skeleton } from "#/components/ui/skeleton";
+import {
+	ChartFrame,
+	ChartToggle,
+	useStoredChoice,
+} from "#/components/charts/chart-frame";
+import { ChartSkeleton } from "#/components/charts/chart-skeleton";
 import useSocket from "#/hooks/use-socket";
-import { inrPriceFormatter, toChartTime, useChartColors } from "#/lib/chart-colors";
+import {
+	inrPriceFormatter,
+	toChartTime,
+	useChartColors,
+} from "#/lib/chart-colors";
 import type { StockOHLC } from "#/types/stock";
 
 type Bar = {
@@ -52,7 +65,9 @@ type Range = (typeof RANGES)[number]["value"];
 const isOhlc = (type: ChartType) => type === "candles" || type === "bars";
 
 const toSeriesData = (bars: Bar[], type: ChartType) =>
-	isOhlc(type) ? bars : bars.map((bar) => ({ time: bar.time, value: bar.close }));
+	isOhlc(type)
+		? bars
+		: bars.map((bar) => ({ time: bar.time, value: bar.close }));
 
 const formatTime = (seconds: number) =>
 	new Date(seconds * 1000).toLocaleTimeString("en-IN", { hour12: false });
@@ -70,7 +85,11 @@ const TVChart = ({ stockId, symbol }: { stockId: string; symbol: string }) => {
 	const viewportSetRef = useRef(false);
 	const colors = useChartColors();
 	const socket = useSocket();
-	const [type, setType] = useStoredChoice<ChartType>("admin-stock-type", CHART_TYPES, "candles");
+	const [type, setType] = useStoredChoice<ChartType>(
+		"admin-stock-type",
+		CHART_TYPES,
+		"candles",
+	);
 	// A whole session of 10 second candles is far too thin to read at once.
 	const [range, setRange] = useState<Range | null>("15m");
 	const [hovered, setHovered] = useState<Bar | null>(null);
@@ -89,18 +108,34 @@ const TVChart = ({ stockId, symbol }: { stockId: string; symbol: string }) => {
 			autoSize: true,
 			crosshair: { mode: CrosshairMode.Magnet },
 			localization: { priceFormatter: inrPriceFormatter },
-			timeScale: { timeVisible: true, secondsVisible: true, borderVisible: false, rightOffset: 4 },
+			timeScale: {
+				timeVisible: true,
+				secondsVisible: true,
+				borderVisible: false,
+				rightOffset: 4,
+			},
 			rightPriceScale: { borderVisible: false },
 			// Over the chart the wheel zooms and a sideways swipe scrolls; drag to pan.
-			handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-			handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },
+			handleScroll: {
+				mouseWheel: true,
+				pressedMouseMove: true,
+				horzTouchDrag: true,
+				vertTouchDrag: false,
+			},
+			handleScale: {
+				mouseWheel: true,
+				pinch: true,
+				axisPressedMouseMove: true,
+			},
 		});
 		chartRef.current = chart;
 		const onMove = (param: MouseEventParams) => {
 			const series = seriesRef.current;
 			const point = series ? param.seriesData.get(series) : undefined;
 			if (!point || param.time === undefined) return setHovered(null);
-			setHovered(barsRef.current.find((bar) => bar.time === param.time) ?? null);
+			setHovered(
+				barsRef.current.find((bar) => bar.time === param.time) ?? null,
+			);
 		};
 		chart.subscribeCrosshairMove(onMove);
 		return () => {
@@ -122,7 +157,9 @@ const TVChart = ({ stockId, symbol }: { stockId: string; symbol: string }) => {
 			line: LineSeries,
 			area: AreaSeries,
 		}[type];
-		const series = chart.addSeries(definition as typeof LineSeries) as ISeriesApi<SeriesType>;
+		const series = chart.addSeries(
+			definition as typeof LineSeries,
+		) as ISeriesApi<SeriesType>;
 		seriesRef.current = series;
 		series.setData(toSeriesData(barsRef.current, type));
 	}, [type]);
@@ -137,10 +174,19 @@ const TVChart = ({ stockId, symbol }: { stockId: string; symbol: string }) => {
 				fontSize: colors.fontSize,
 				attributionLogo: false,
 			},
-			grid: { vertLines: { color: colors.grid }, horzLines: { color: colors.grid } },
+			grid: {
+				vertLines: { color: colors.grid },
+				horzLines: { color: colors.grid },
+			},
 			crosshair: {
-				vertLine: { color: colors.crosshair, labelBackgroundColor: colors.accent },
-				horzLine: { color: colors.crosshair, labelBackgroundColor: colors.accent },
+				vertLine: {
+					color: colors.crosshair,
+					labelBackgroundColor: colors.accent,
+				},
+				horzLine: {
+					color: colors.crosshair,
+					labelBackgroundColor: colors.accent,
+				},
 			},
 		});
 		seriesRef.current?.applyOptions(
@@ -236,39 +282,66 @@ const TVChart = ({ stockId, symbol }: { stockId: string; symbol: string }) => {
 
 	return (
 		<div className="relative">
-			{history.isPending && <Skeleton className="absolute inset-x-0 top-10 z-10 h-72 md:h-[400px]" />}
-			{history.isError && (
-				<div className="absolute inset-x-0 top-10 z-10 flex h-72 items-center justify-center text-sm text-muted-foreground">
-					Could not load the price history.
-				</div>
-			)}
 			<ChartFrame
 				label={`${symbol} price chart`}
 				filename={`${symbol}-price`}
 				chartRef={chartRef}
 				containerRef={containerRef}
 				chartClassName="h-72 md:h-[400px]"
+				// Over the chart's own box, so a wait never leaves an empty frame.
+				overlay={
+					history.isPending ? (
+						<ChartSkeleton className="size-full" />
+					) : history.isError ? (
+						<div className="flex size-full items-center justify-center rounded-md border bg-card/60 text-sm text-muted-foreground">
+							Could not load the price history.
+						</div>
+					) : history.data?.length === 0 ? (
+						<div className="flex size-full items-center justify-center rounded-md border border-dashed bg-card/60 text-sm text-muted-foreground">
+							No price history yet. Candles appear once trading starts.
+						</div>
+					) : null
+				}
 				onViewportChange={() => setRange(null)}
 				toolbar={
 					<>
-						<ChartToggle label="Chart type" value={type} options={TYPE_OPTIONS} onChange={setType} />
-						<ChartToggle label="Time range" value={range} options={[...RANGES]} onChange={applyRange} />
+						<ChartToggle
+							label="Chart type"
+							value={type}
+							options={TYPE_OPTIONS}
+							onChange={setType}
+						/>
+						<ChartToggle
+							label="Time range"
+							value={range}
+							options={[...RANGES]}
+							onChange={applyRange}
+						/>
 					</>
 				}
 				legend={
-					<div className="flex min-h-5 flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs tabular-nums" aria-live="off">
+					<div
+						className="flex min-h-5 flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs tabular-nums"
+						aria-live="off"
+					>
 						{shown ? (
 							<>
-								<span className="text-muted-foreground">{formatTime(shown.time)}</span>
+								<span className="text-muted-foreground">
+									{formatTime(shown.time)}
+								</span>
 								{(["open", "high", "low", "close"] as const).map((key) => (
 									<span key={key}>
-										<span className="text-muted-foreground">{key[0].toUpperCase()}</span>{" "}
+										<span className="text-muted-foreground">
+											{key[0].toUpperCase()}
+										</span>{" "}
 										{inrPriceFormatter(shown[key])}
 									</span>
 								))}
 							</>
 						) : (
-							<span className="text-muted-foreground">Point at the chart to read a candle.</span>
+							<span className="text-muted-foreground">
+								Point at the chart to read a candle.
+							</span>
 						)}
 					</div>
 				}

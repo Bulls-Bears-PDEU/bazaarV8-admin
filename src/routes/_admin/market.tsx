@@ -1,9 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Minus, Pause, Play, TrendingDown, TrendingUp } from "lucide-react";
+import {
+	ListX,
+	Minus,
+	Pause,
+	Play,
+	TrendingDown,
+	TrendingUp,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getMarketState, setMarketPaused, setMarketSentiment } from "#/api/market";
+import { cancelAllOrders } from "#/api/god-mode";
+import {
+	getMarketState,
+	setMarketPaused,
+	setMarketSentiment,
+} from "#/api/market";
 import { MarketOverview } from "#/components/market-overview";
 import { PageHeader } from "#/components/page-header";
 import { Button } from "#/components/ui/button";
@@ -18,6 +30,8 @@ import {
 } from "#/components/ui/dialog";
 import { Skeleton } from "#/components/ui/skeleton";
 import { Spinner } from "#/components/ui/spinner";
+import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
+import { ConfirmDangerous } from "#/components/users/confirm-dangerous";
 import useSocket from "#/hooks/use-socket";
 import { cn } from "#/lib/utils";
 import type { MarketSentiment, MarketState } from "#/types/market";
@@ -37,32 +51,45 @@ const SENTIMENTS: {
 		value: "bearish",
 		label: "Bearish",
 		icon: TrendingDown,
-		effect: "Prices were repriced down and keep drifting lower.",
-		active: "bg-loss-muted text-loss",
+		effect: "Prices were knocked down and keep drifting lower.",
+		active: "data-[state=on]:bg-loss-muted data-[state=on]:text-loss",
 	},
 	{
 		value: "neutral",
 		label: "Neutral",
 		icon: Minus,
-		effect: "No tilt: prices move on noise and news alone.",
-		active: "bg-background text-foreground",
+		effect:
+			"No tilt. Prices stay where the last move left them and drift on noise and news alone.",
+		active: "data-[state=on]:bg-background data-[state=on]:text-foreground",
 	},
 	{
 		value: "bullish",
 		label: "Bullish",
 		icon: TrendingUp,
-		effect: "Prices were repriced up and keep drifting higher.",
-		active: "bg-gain-muted text-gain",
+		effect: "Prices were marked up and keep drifting higher.",
+		active: "data-[state=on]:bg-gain-muted data-[state=on]:text-gain",
 	},
 ];
 
 const formatTime = (value: string) =>
-	new Date(value).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+	new Date(value).toLocaleTimeString("en-IN", {
+		hour: "2-digit",
+		minute: "2-digit",
+	});
 
 function RouteComponent() {
 	const queryClient = useQueryClient();
 	const socket = useSocket();
 	const [confirmPause, setConfirmPause] = useState(false);
+	const [confirmClear, setConfirmClear] = useState(false);
+	const clearOrders = useMutation({
+		mutationFn: cancelAllOrders,
+		onSuccess: (result) => {
+			toast.success(`Cancelled ${result.cancelled} open order(s).`);
+			setConfirmClear(false);
+		},
+		onError: () => toast.error("Could not clear the book."),
+	});
 
 	const marketState = useQuery({
 		queryKey: ["market-state"],
@@ -93,7 +120,11 @@ function RouteComponent() {
 		onSuccess: (state) => {
 			queryClient.setQueryData(["market-state"], state);
 			setConfirmPause(false);
-			toast.success(state.is_paused ? "Market paused. Prices are frozen." : "Market resumed. Prices are moving again.");
+			toast.success(
+				state.is_paused
+					? "Market paused. Prices are frozen."
+					: "Market resumed. Prices are moving again.",
+			);
 		},
 		onError: (error) => {
 			toast.error(error.message || "Could not change the market state.");
@@ -113,11 +144,16 @@ function RouteComponent() {
 
 	const state = marketState.data;
 	const isPaused = state?.is_paused ?? false;
-	const current = SENTIMENTS.find((option) => option.value === state?.sentiment);
+	const current = SENTIMENTS.find(
+		(option) => option.value === state?.sentiment,
+	);
 
 	return (
 		<div className="flex flex-col gap-6">
-			<PageHeader title="Market" description="Run trading and steer the market. Players see these changes live." />
+			<PageHeader
+				title="Market"
+				description="Run trading and steer the market. Players see these changes live."
+			/>
 
 			{/* The two controls an organiser reaches for, side by side on one bar. */}
 			<Card className="grid gap-0 p-0 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
@@ -125,7 +161,10 @@ function RouteComponent() {
 					aria-labelledby="trading-heading"
 					className="flex flex-col gap-3 border-b p-4 md:border-r md:border-b-0 md:p-5"
 				>
-					<h2 id="trading-heading" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+					<h2
+						id="trading-heading"
+						className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
+					>
 						Trading
 					</h2>
 					{state ? (
@@ -143,7 +182,9 @@ function RouteComponent() {
 									/>
 								</span>
 								<div className="flex min-w-0 flex-col">
-									<span className="font-medium">{isPaused ? "Paused" : "Live"}</span>
+									<span className="font-medium">
+										{isPaused ? "Paused" : "Live"}
+									</span>
 									<span className="truncate text-xs text-muted-foreground">
 										{isPaused
 											? state.paused_at
@@ -154,8 +195,15 @@ function RouteComponent() {
 								</div>
 							</div>
 							{isPaused ? (
-								<Button onClick={() => pauseMutation.mutate(false)} disabled={pauseMutation.isPending}>
-									{pauseMutation.isPending ? <Spinner data-icon="inline-start" /> : <Play data-icon="inline-start" />}
+								<Button
+									onClick={() => pauseMutation.mutate(false)}
+									disabled={pauseMutation.isPending}
+								>
+									{pauseMutation.isPending ? (
+										<Spinner data-icon="inline-start" />
+									) : (
+										<Play data-icon="inline-start" />
+									)}
 									Resume
 								</Button>
 							) : (
@@ -175,39 +223,50 @@ function RouteComponent() {
 					)}
 				</section>
 
-				<section aria-labelledby="sentiment-heading" className="flex flex-col gap-3 p-4 md:p-5">
+				<section
+					aria-labelledby="sentiment-heading"
+					className="flex flex-col gap-3 p-4 md:p-5"
+				>
 					<div className="flex items-center justify-between gap-3">
-						<h2 id="sentiment-heading" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+						<h2
+							id="sentiment-heading"
+							className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
+						>
 							Sentiment
 						</h2>
-						{sentimentMutation.isPending && <Spinner className="size-3.5 text-muted-foreground" />}
+						{sentimentMutation.isPending && (
+							<Spinner className="size-3.5 text-muted-foreground" />
+						)}
 					</div>
-					{/* A segmented control: three equal buttons that never outgrow the bar. */}
-					<div role="radiogroup" aria-labelledby="sentiment-heading" className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
-						{SENTIMENTS.map(({ value, label, icon: Icon, active }) => {
-							const selected = state?.sentiment === value;
-							return (
-								// biome-ignore lint/a11y/useSemanticElements: a styled segmented control
-								<button
-									key={value}
-									type="button"
-									role="radio"
-									aria-checked={selected}
-									disabled={!state || sentimentMutation.isPending}
-									onClick={() => {
-										if (!selected) sentimentMutation.mutate(value);
-									}}
-									className={cn(
-										"flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed",
-										selected && cn("shadow-sm", active),
-									)}
-								>
-									<Icon className="size-4 shrink-0" />
-									<span className="truncate">{label}</span>
-								</button>
-							);
-						})}
-					</div>
+					{/* A segmented control: three equal options that never outgrow the bar. */}
+					<ToggleGroup
+						type="single"
+						spacing={1}
+						aria-labelledby="sentiment-heading"
+						value={state?.sentiment ?? ""}
+						// Radix emits "" when the pressed item is pressed again, and a
+						// market always has one sentiment.
+						onValueChange={(value) =>
+							value && sentimentMutation.mutate(value as MarketSentiment)
+						}
+						disabled={!state || sentimentMutation.isPending}
+						className="grid w-full grid-cols-3 gap-1 rounded-lg bg-muted p-1"
+					>
+						{SENTIMENTS.map(({ value, label, icon: Icon, active }) => (
+							<ToggleGroupItem
+								key={value}
+								value={value}
+								aria-label={label}
+								className={cn(
+									"h-9 min-w-0 gap-1.5 rounded-md border-0 px-2 text-sm font-medium text-muted-foreground data-[state=on]:shadow-sm",
+									active,
+								)}
+							>
+								<Icon className="size-4 shrink-0" />
+								<span className="truncate">{label}</span>
+							</ToggleGroupItem>
+						))}
+					</ToggleGroup>
 					<p className="text-xs text-muted-foreground">
 						{current ? current.effect : "Loading…"}
 						{isPaused && " Takes effect when trading resumes."}
@@ -217,21 +276,61 @@ function RouteComponent() {
 
 			<MarketOverview isPaused={isPaused} />
 
+			<Card>
+				<section className="flex flex-col gap-3 p-4 md:p-5">
+					<h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+						The order book
+					</h2>
+					<p className="text-sm text-muted-foreground">
+						Clears every resting limit order in the market and gives each player
+						back whatever theirs were holding aside. Positions are untouched.
+					</p>
+					<Button
+						variant="outline"
+						className="w-fit border-loss/40 text-loss hover:bg-loss-muted hover:text-loss"
+						onClick={() => setConfirmClear(true)}
+					>
+						<ListX data-icon="inline-start" />
+						Cancel every open order
+					</Button>
+				</section>
+			</Card>
+
+			<ConfirmDangerous
+				open={confirmClear}
+				onOpenChange={setConfirmClear}
+				title="Cancel every open order?"
+				description="Every player's resting limit orders are cancelled at once and their reserved cash and margin released. This cannot be undone, and it is written to the action log."
+				confirmWord="CANCEL ALL"
+				actionLabel="Cancel every order"
+				pending={clearOrders.isPending}
+				onConfirm={() => clearOrders.mutate()}
+			/>
+
 			<Dialog open={confirmPause} onOpenChange={setConfirmPause}>
 				<DialogContent className="sm:max-w-md">
 					<DialogHeader>
 						<DialogTitle>Pause the market?</DialogTitle>
 						<DialogDescription>
-							Every price freezes and players are sent to the market-closed screen until you resume. Orders cannot
-							be placed while it is paused.
+							Every price freezes and players are sent to the market-closed
+							screen until you resume. Orders cannot be placed while it is
+							paused.
 						</DialogDescription>
 					</DialogHeader>
 					<DialogFooter>
 						<Button variant="outline" onClick={() => setConfirmPause(false)}>
 							Keep trading
 						</Button>
-						<Button variant="destructive" onClick={() => pauseMutation.mutate(true)} disabled={pauseMutation.isPending}>
-							{pauseMutation.isPending ? <Spinner data-icon="inline-start" /> : <Pause data-icon="inline-start" />}
+						<Button
+							variant="destructive"
+							onClick={() => pauseMutation.mutate(true)}
+							disabled={pauseMutation.isPending}
+						>
+							{pauseMutation.isPending ? (
+								<Spinner data-icon="inline-start" />
+							) : (
+								<Pause data-icon="inline-start" />
+							)}
 							Pause market
 						</Button>
 					</DialogFooter>

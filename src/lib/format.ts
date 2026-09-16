@@ -88,6 +88,24 @@ export const trendBadge = (value: number | null | undefined) =>
 			? "bg-gain-muted text-gain"
 			: "bg-loss-muted text-loss";
 
+/** A span of time: "1s", "45s", "2m", "1h 30m". */
+export const formatDuration = (seconds: number) => {
+	if (seconds < 60) return `${seconds}s`;
+	const hours = Math.floor(seconds / 3600);
+	const minutes = Math.floor((seconds % 3600) / 60);
+	const rest = seconds % 60;
+	const parts = [hours && `${hours}h`, minutes && `${minutes}m`, rest && `${rest}s`];
+	return parts.filter(Boolean).join(" ");
+};
+
+/** "in 12m", "in 1h 5m", or "any moment" once the time has passed. */
+export const formatCountdown = (value: string | Date, now = Date.now()) => {
+	const seconds = Math.round((new Date(value).getTime() - now) / 1000);
+	if (seconds <= 0) return "any moment";
+	if (seconds < 60) return `in ${seconds}s`;
+	return `in ${formatDuration(Math.round(seconds / 60) * 60)}`;
+};
+
 /** "just now", "4m ago", "2h ago", then a date. */
 export const formatRelative = (value: string | Date | null | undefined, now = Date.now()) => {
 	if (!value) return "—";

@@ -1,249 +1,203 @@
 import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import {
-	Eye,
-	EyeOff,
-	KeyRound,
-	MailCheck,
-} from "lucide-react";
-import { type SubmitEvent, useState } from "react";
+import { KeyRound, Mail, MailCheck } from "lucide-react";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
+import {
+	AuthHeading,
+	authLinkClass,
+	FormAlert,
+	MIN_PASSWORD_LENGTH,
+	PasswordChecklist,
+	PasswordField,
+	PasswordStrength,
+	SubmitButton,
+	TextField,
+} from "#/components/auth/auth-fields";
 import { AuthLayout } from "#/components/auth-layout";
 import { Button } from "#/components/ui/button";
-import { Field, FieldGroup, FieldLabel } from "#/components/ui/field";
-import { Input } from "#/components/ui/input";
 import { authClient } from "#/lib/auth-client";
-import { Spinner } from "./ui/spinner";
 
-export function ResetPasswordForm({
-	className,
-	...props
-}: { className?: string; token?: string }) {
-	const navigate = useNavigate();
-	const [showPassword, setShowPassword] = useState(false);
-	const [isSubmitted, setIsSubmitted] = useState(false);
-	const passwordInputType = showPassword ? "text" : "password";
+/**
+ * Two flows on one route: without a token, request a reset email; with one
+ * (from the emailed link), set the new password.
+ */
+export function ResetPasswordForm({ token }: { token?: string }) {
+	if (token) return <SetNewPassword token={token} />;
+	return <RequestReset />;
+}
 
-	// Instead of checking tanstack router search params strictly (which needs the route to parse it),
-	// we grab from window.location.search to keep the component decoupled from strict type definitions.
-	const token = props.token;
-	const isSettingNewPassword = !!token;
+function RequestReset() {
+	const [email, setEmail] = useState("");
+	const [sentTo, setSentTo] = useState<string | null>(null);
+	const [error, setError] = useState<string | null>(null);
 
-	const handleRequestReset = useMutation({
-		mutationFn: async (e: SubmitEvent<HTMLFormElement>) => {
-			e.preventDefault();
-			const result = await authClient.requestPasswordReset({
-				email: e.target.email.value,
+	const request = useMutation({
+		mutationFn: () =>
+			authClient.requestPasswordReset({
+				email: email.trim(),
 				redirectTo: `${window.location.origin}/auth/resetpassword`,
-			});
-			return result;
-		},
-		onSuccess: (data) => {
-			if (data?.error) {
-				toast.error(
-					data.error.message ||
-						"Failed to request password reset. Please try again.",
-				);
-			} else {
-				setIsSubmitted(true);
-				toast.success("Password reset email sent. Please check your inbox.");
+			}),
+		onSuccess: (result) => {
+			if (result?.error) {
+				setError(result.error.message || "Could not send the reset email. Try again.");
+				return;
 			}
+			setSentTo(email.trim());
 		},
-		onError: (error) => {
-			toast.error("Failed to request reset. Please try again.");
-			console.error("Reset request failed:", error);
-		},
+		onError: () => setError("Could not reach the server. Check your connection and try again."),
 	});
 
-	const handleSetNewPassword = useMutation({
-		mutationFn: async (e: SubmitEvent<HTMLFormElement>) => {
-			e.preventDefault();
-			const password = e.target.password.value;
-			const confirmPassword = e.target.confirmPassword.value;
+	if (sentTo) {
+		return (
+			<AuthLayout>
+				<div className="flex flex-col gap-8">
+					<AuthHeading
+						icon={MailCheck}
+						title="Check your email"
+						description={
+							<>
+								If an account exists for <span className="font-medium text-foreground">{sentTo}</span>, a reset
+								link is on its way. It can take a few minutes, so check spam too.
+							</>
+						}
+					/>
+					<div className="flex flex-col gap-3">
+						<Button asChild size="lg" className="h-11 w-full rounded-xl text-base">
+							<Link to="/auth/signin">Back to sign in</Link>
+						</Button>
+						<Button variant="ghost" size="lg" className="h-11 w-full rounded-xl" onClick={() => setSentTo(null)}>
+							Use a different email
+						</Button>
+					</div>
+				</div>
+			</AuthLayout>
+		);
+	}
 
-			if (password !== confirmPassword) {
-				throw new Error("Passwords do not match");
-			}
+	return (
+		<AuthLayout>
+			<form
+				className="flex flex-col gap-8"
+				onSubmit={(event) => {
+					event.preventDefault();
+					if (request.isPending) return;
+					setError(null);
+					request.mutate();
+				}}
+			>
+				<AuthHeading title="Reset your password" description="Enter your account's email and we will send you a link to set a new one." />
+				<div className="flex flex-col gap-5">
+					<FormAlert message={error} />
+					<TextField
+						label="Email"
+						icon={Mail}
+						name="email"
+						type="email"
+						autoComplete="email"
+						inputMode="email"
+						placeholder="you@example.com"
+						required
+						value={email}
+						onChange={(event) => setEmail(event.target.value)}
+					/>
+				</div>
+				<div className="flex flex-col gap-5">
+					<SubmitButton pending={request.isPending}>{request.isPending ? "Sending link…" : "Send reset link"}</SubmitButton>
+					<p className="text-sm text-muted-foreground">
+						Remembered it?{" "}
+						<Link to="/auth/signin" className={authLinkClass}>
+							Back to sign in
+						</Link>
+					</p>
+				</div>
+			</form>
+		</AuthLayout>
+	);
+}
 
-			const result = await authClient.resetPassword({
-				newPassword: password,
-				token: token,
-			});
-			return result;
-		},
-		onSuccess: (data) => {
-			if (data?.error) {
-				toast.error(
-					data.error.message ||
-						"Failed to reset your password. The link might be expired.",
-				);
-			} else {
-				toast.success(
-					"Password has been reset successfully. You can now log in.",
-				);
-				navigate({ to: "/auth/signin" });
+function SetNewPassword({ token }: { token: string }) {
+	const navigate = useNavigate();
+	const [password, setPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
+	const [submitted, setSubmitted] = useState(false);
+	const [touched, setTouched] = useState({ password: false, confirm: false });
+	const [error, setError] = useState<string | null>(null);
+	const passwordRef = useRef<HTMLInputElement>(null);
+	const confirmRef = useRef<HTMLInputElement>(null);
+	const strengthId = useId();
+	const checklistId = useId();
+
+	const tooShort = password.length < MIN_PASSWORD_LENGTH;
+	const mismatch = password !== confirmPassword;
+
+	const reset = useMutation({
+		mutationFn: () => authClient.resetPassword({ newPassword: password, token }),
+		onSuccess: (result) => {
+			if (result?.error) {
+				setError(result.error.message || "This link has expired or was already used. Request a new one.");
+				return;
 			}
+			toast.success("Password updated. Sign in with your new password.");
+			navigate({ to: "/auth/signin" });
 		},
-		onError: (error: any) => {
-			toast.error(
-				error.message || "Failed to reset password. Please try again.",
-			);
-			console.error("Set password failed:", error);
-		},
+		onError: () => setError("Could not reach the server. Check your connection and try again."),
 	});
 
 	return (
-		<AuthLayout className={className}>
-						{isSettingNewPassword ? (
-							// Flow: Setting New Password
-							<form onSubmit={handleSetNewPassword.mutate}>
-								<div className="flex flex-col gap-6">
-									<div className="flex flex-col items-center gap-2 text-center">
-										<div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-											<KeyRound className="h-6 w-6 text-primary" />
-										</div>
-										<h1 className="text-2xl font-semibold tracking-tight mt-2">
-											Set new password
-										</h1>
-										<p className="text-balance text-sm text-muted-foreground">
-											Please enter your new password below.
-										</p>
-									</div>
-									<FieldGroup>
-										<Field>
-											<div className="flex items-center justify-between">
-												<FieldLabel htmlFor="password">New Password</FieldLabel>
-											</div>
-											<div className="relative">
-												<Input
-													id="password"
-													type={passwordInputType}
-													className="pr-10"
-													required
-												/>
-												<Button
-													aria-label={
-														showPassword ? "Hide password" : "Show password"
-													}
-													className="absolute top-0 right-0 h-full px-3 py-2 text-muted-foreground hover:text-foreground"
-													type="button"
-													variant="ghost"
-													onClick={() => setShowPassword((value) => !value)}
-												>
-													{showPassword ? (
-														<EyeOff className="h-4 w-4" aria-hidden="true" />
-													) : (
-														<Eye className="h-4 w-4" aria-hidden="true" />
-													)}
-												</Button>
-											</div>
-										</Field>
-										<Field>
-											<FieldLabel htmlFor="confirmPassword">
-												Confirm Password
-											</FieldLabel>
-											<Input
-												id="confirmPassword"
-												type={passwordInputType}
-												required
-											/>
-										</Field>
-
-										<Field>
-											<Button
-												type="submit"
-												className="w-full"
-												disabled={handleSetNewPassword.isPending}
-											>
-												{handleSetNewPassword.isPending && (
-													<Spinner className="mr-2" data-icon="inline-start" />
-												)}
-												Update password
-											</Button>
-										</Field>
-									</FieldGroup>
-
-									<div className="mt-4 text-center text-sm">
-										Remembered your password?{" "}
-										<Link
-											to="/auth/signin"
-											className="text-muted-foreground hover:text-primary hover:underline"
-										>
-											Back to login
-										</Link>
-									</div>
-								</div>
-							</form>
-						) : isSubmitted ? (
-							// Flow: Success Message after requesting reset link
-							<div className="flex flex-col items-center justify-center gap-6 text-center">
-								<div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 mb-2">
-									<MailCheck className="h-6 w-6 text-emerald-500" />
-								</div>
-								<h1 className="text-2xl font-semibold tracking-tight">
-									Check your email
-								</h1>
-								<p className="text-balance text-sm text-muted-foreground">
-									We've sent a password reset link to your email address. It may
-									take a few minutes to arrive.
-								</p>
-								<Button
-									asChild
-									className="w-full mt-4 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground"
-									variant="ghost"
-								>
-									<Link to="/auth/signin">Return to sign in</Link>
-								</Button>
-							</div>
-						) : (
-							// Flow: Requesting Reset Link
-							<form onSubmit={handleRequestReset.mutate}>
-								<div className="flex flex-col gap-6">
-									<div className="flex flex-col items-center gap-2 text-center">
-										<h1 className="text-2xl font-semibold tracking-tight">
-											Reset password
-										</h1>
-										<p className="text-balance text-sm text-muted-foreground">
-											Enter your email address and we'll send you a link to
-											reset your password.
-										</p>
-									</div>
-									<FieldGroup>
-										<Field>
-											<FieldLabel htmlFor="email">Email address</FieldLabel>
-											<Input
-												id="email"
-												type="email"
-												placeholder="m@example.com"
-												required
-											/>
-										</Field>
-
-										<Field>
-											<Button
-												type="submit"
-												className="w-full"
-												disabled={handleRequestReset.isPending}
-											>
-												{handleRequestReset.isPending && (
-													<Spinner className="mr-2" data-icon="inline-start" />
-												)}
-												Send reset link
-											</Button>
-										</Field>
-									</FieldGroup>
-
-									<div className="mt-4 text-center text-sm">
-										<Link
-											to="/auth/signin"
-											className="text-muted-foreground hover:text-foreground hover:underline"
-										>
-											Back to login
-										</Link>
-									</div>
-								</div>
-							</form>
-						)}
+		<AuthLayout>
+			<form
+				noValidate
+				className="flex flex-col gap-8"
+				onSubmit={(event) => {
+					event.preventDefault();
+					if (reset.isPending) return;
+					setSubmitted(true);
+					setError(null);
+					if (tooShort) return passwordRef.current?.focus();
+					if (mismatch) return confirmRef.current?.focus();
+					reset.mutate();
+				}}
+			>
+				<AuthHeading icon={KeyRound} title="Set a new password" description="Choose a password you have not used here before." />
+				<div className="flex flex-col gap-5">
+					<FormAlert message={error} />
+					<PasswordField
+						ref={passwordRef}
+						label="New password"
+						name="password"
+						autoComplete="new-password"
+						required
+						minLength={MIN_PASSWORD_LENGTH}
+						value={password}
+						onChange={(event) => setPassword(event.target.value)}
+						onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
+						error={(touched.password || submitted) && tooShort ? `Use at least ${MIN_PASSWORD_LENGTH} characters.` : null}
+						describedBy={[strengthId]}
+						after={<PasswordStrength id={strengthId} password={password} />}
+					/>
+					<PasswordField
+						ref={confirmRef}
+						label="Confirm new password"
+						name="confirmPassword"
+						autoComplete="new-password"
+						required
+						value={confirmPassword}
+						onChange={(event) => setConfirmPassword(event.target.value)}
+						onBlur={() => setTouched((prev) => ({ ...prev, confirm: true }))}
+						error={
+							(touched.confirm || submitted) && confirmPassword && mismatch
+								? "The passwords do not match."
+								: submitted && !confirmPassword
+									? "Type the password again to confirm it."
+									: null
+						}
+						describedBy={[checklistId]}
+					/>
+					<PasswordChecklist id={checklistId} password={password} confirm={confirmPassword} />
+				</div>
+				<SubmitButton pending={reset.isPending}>{reset.isPending ? "Updating…" : "Update password"}</SubmitButton>
+			</form>
 		</AuthLayout>
 	);
 }

@@ -1,15 +1,28 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools";
-import { createRootRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
+import {
+	createRootRoute,
+	Link,
+	Outlet,
+	useRouterState,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { useEffect } from "react";
 
 import "../styles.css";
 import { Toaster } from "sonner";
 import NProgress from "#/components/n-progress";
 import { useTheme } from "#/components/theme-provider";
 import { Button } from "#/components/ui/button";
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "#/components/ui/empty";
+import {
+	Empty,
+	EmptyContent,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyTitle,
+} from "#/components/ui/empty";
 import { Loading } from "#/components/ui/loading";
+import { dismissBootSplash } from "#/lib/boot";
 
 export const Route = createRootRoute({
 	pendingComponent: () => <Loading fullScreen />,
@@ -36,6 +49,8 @@ function GlobalLoadingOverlay() {
 
 function RootComponent() {
 	const { theme } = useTheme();
+	// The splash held the page until this first render; it can go now.
+	useEffect(dismissBootSplash, []);
 	return (
 		<>
 			<GlobalLoadingOverlay />

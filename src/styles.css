@@ -151,6 +151,7 @@
     --animate-ticker: ticker var(--ticker-duration, 60s) linear infinite;
     --animate-ring: ring 900ms ease-in-out;
     --animate-rise: rise 500ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+    --animate-page-in: page-in 300ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
 
     @keyframes tick-in {
         0% { opacity: 0; transform: translateY(var(--tick-from, 4px)); }
@@ -172,14 +173,70 @@
         from { opacity: 0; transform: translateY(8px); }
         to { opacity: 1; transform: translateY(0); }
     }
+    @keyframes page-in {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
 }
+
+/* Used by plain CSS below as well as by the utilities, so declared here where
+   Tailwind cannot drop it for want of a matching class. */
+@keyframes bar-sweep {
+    0% { transform: translateX(-100%) scaleX(0.4); }
+    50% { transform: translateX(0%) scaleX(0.7); }
+    100% { transform: translateX(100%) scaleX(0.4); }
+}
+@keyframes shimmer {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
+}
+@keyframes breathe {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.72; transform: scale(0.94); }
+}
+@keyframes halo {
+    0% { opacity: 0.55; transform: scale(0.85); }
+    70% { opacity: 0; transform: scale(1.45); }
+    100% { opacity: 0; transform: scale(1.45); }
+}
+
+/* Placeholders sweep rather than blink: a pulse on a screen of cards reads as
+   flicker, while one pass of light reads as "still arriving". */
+[data-slot="skeleton"] {
+    position: relative;
+    overflow: hidden;
+}
+[data-slot="skeleton"]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+        90deg,
+        transparent,
+        color-mix(in oklab, var(--foreground) 8%, transparent),
+        transparent
+    );
+    animation: shimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* The mark that holds the screen while the first render happens, and again
+   between routes, so both waits look like the same thing. */
+.boot-mark { animation: breathe 1.8s ease-in-out infinite; }
+.boot-halo { animation: halo 1.8s ease-in-out infinite; }
+.boot-bar > span { animation: bar-sweep 1.4s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
     .animate-tick-in,
     .animate-ring,
-    .animate-rise {
+    .animate-rise,
+    .animate-page-in,
+    .boot-mark,
+    .boot-halo,
+    .boot-bar > span {
         animation: none;
     }
+    [data-slot="skeleton"]::after { display: none; }
 }
 
 /* Placeholder logos: a monogram tinted by a hue derived from the symbol. */
@@ -210,6 +267,7 @@ html.a11y-reduce-motion *::after {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
 }
+html.a11y-reduce-motion [data-slot="skeleton"]::after { display: none; }
 /* A still ticker can be scrolled by hand instead. */
 html.a11y-reduce-motion .ticker-track { animation: none !important; }
 html.a11y-reduce-motion .ticker-viewport { overflow-x: auto; }
