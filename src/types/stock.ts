@@ -1,16 +1,18 @@
 export type Stock = {
-		id: number;
-		name: string;
-		symbol: string;
-		sector: string;
-		volatility: number;
-		created_at: string;
-		// Trading halted for this stock. The API returns `locked`; this type used
-		// to say `isLocked`, which is why the lock badge always read "Unlocked".
-		locked: boolean;
-		last_price?: number | null;
-		name_tsv: string;
-	};
+	id: number;
+	name: string;
+	symbol: string;
+	sector: string;
+	volatility: number;
+	created_at: string;
+	// Trading halted for this stock. The API returns `locked`; this type used
+	// to say `isLocked`, which is why the lock badge always read "Unlocked".
+	locked: boolean;
+	last_price?: number | null;
+	// A backend path such as /stocks/logo/4?v=..., or null until one is uploaded.
+	logo_url?: string | null;
+	name_tsv: string;
+};
 
 export type StockOHLC = {
 	id: number;

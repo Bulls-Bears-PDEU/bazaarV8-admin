@@ -80,3 +80,22 @@ export const addStock = async (
 	const res = await axios.post("/stocks/addStock", { stockData, initPrice });
 	return res.data as Stock;
 };
+
+/**
+ * Uploads a logo. Any PNG, JPEG or WebP up to 8 MB; the backend re-encodes it
+ * to a 256px WebP, so what is stored is a few kilobytes whatever was sent.
+ */
+export const uploadStockLogo = async (stockId: number, file: File) =>
+	(
+		await axios.put<{ logo_url: string; bytes: number }>(
+			`/stocks/${stockId}/logo`,
+			file,
+			{
+				headers: { "Content-Type": file.type },
+			},
+		)
+	).data;
+
+export const removeStockLogo = async (stockId: number) => {
+	await axios.delete(`/stocks/${stockId}/logo`);
+};

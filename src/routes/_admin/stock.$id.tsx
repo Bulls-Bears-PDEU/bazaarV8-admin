@@ -13,7 +13,7 @@ import {
 import StockCurrentPrice from "#/components/current-price";
 import { PageHeader } from "#/components/page-header";
 import { SectionTitle, Stat } from "#/components/stat";
-import { StockLogo } from "#/components/stock-logo";
+import { StockLogoEditor } from "#/components/stock-logo-editor";
 import StockOhlcTable from "#/components/stock-ohlc-table";
 import TVChart from "#/components/tv-chart";
 import { Badge } from "#/components/ui/badge";
@@ -143,7 +143,13 @@ function RouteComponent() {
 		<div className="flex min-w-0 flex-col gap-6">
 			<PageHeader
 				leading={
-					stock.data && <StockLogo symbol={stock.data.symbol} size="lg" />
+					stock.data && (
+						<StockLogoEditor
+							stockId={stock.data.id}
+							symbol={stock.data.symbol}
+							logoUrl={stock.data.logo_url}
+						/>
+					)
 				}
 				title={stock.data?.name ?? "Stock"}
 				description={
@@ -171,9 +177,7 @@ function RouteComponent() {
 					<Stat label="Sector" value={stock.data?.sector ?? "—"} />
 					<Stat
 						label="Volatility"
-						value={
-							stock.data ? Number(stock.data.volatility).toFixed(2) : "—"
-						}
+						value={stock.data ? Number(stock.data.volatility).toFixed(2) : "—"}
 						hint="Annualised"
 					/>
 					<Stat

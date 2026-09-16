@@ -8,6 +8,7 @@ import { Stat } from "#/components/stat";
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Skeleton } from "#/components/ui/skeleton";
 import useSocket from "#/hooks/use-socket";
+import { mediaUrl } from "#/lib/media";
 import { cn } from "#/lib/utils";
 import type { LeaderboardEntry } from "#/types/leaderboard";
 
@@ -118,7 +119,7 @@ function RouteComponent() {
 									)}
 								</span>
 								<Avatar className="size-8">
-									{entry.image && <AvatarImage src={entry.image} alt="" />}
+									{entry.image && <AvatarImage src={mediaUrl(entry.image)} alt="" />}
 									<AvatarFallback className="text-xs">{initials(entry.name)}</AvatarFallback>
 								</Avatar>
 								<span className="flex min-w-0 flex-1 flex-col">

@@ -65,7 +65,7 @@ export function GodModePanel({
 		queryFn: () => getGodModeView(userId),
 	});
 	const stocks = useQuery({
-		queryKey: ["stocks", "all"],
+		queryKey: ["stocks"],
 		queryFn: getAllStocks,
 		staleTime: 60_000,
 	});

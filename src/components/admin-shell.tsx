@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
 	ChartCandlestick,
@@ -47,7 +48,9 @@ import {
 	useSidebar,
 } from "#/components/ui/sidebar";
 import { useSettledPathname } from "#/hooks/use-settled-pathname";
+import useSocket from "#/hooks/use-socket";
 import { authClient } from "#/lib/auth-client";
+import { mediaUrl } from "#/lib/media";
 import { cn } from "#/lib/utils";
 
 type NavItem = {
@@ -99,7 +102,7 @@ function UserMenu() {
 					className="rounded-full p-0"
 				>
 					<Avatar className="size-8">
-						{user?.image && <AvatarImage src={user.image} alt="" />}
+						{user?.image && <AvatarImage src={mediaUrl(user.image)} alt="" />}
 						<AvatarFallback className="bg-primary/15 text-xs font-semibold text-primary">
 							{initials(user?.name)}
 						</AvatarFallback>
@@ -121,6 +124,25 @@ function UserMenu() {
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
+}
+
+/**
+ * Another organiser changed a stock's details or logo: refetch the list every
+ * StockLogo reads from. Registered once here rather than in each logo, which
+ * would add a socket listener per row of every table.
+ */
+function useStocksChangedRefresh() {
+	const socket = useSocket();
+	const queryClient = useQueryClient();
+	useEffect(() => {
+		if (!socket) return;
+		const refresh = () =>
+			queryClient.invalidateQueries({ queryKey: ["stocks"], exact: true });
+		socket.on("stocksChanged", refresh);
+		return () => {
+			socket.off("stocksChanged", refresh);
+		};
+	}, [socket, queryClient]);
 }
 
 /** The player app's shell for the admin panel: a rail on desktop, a tab bar on phones. */
@@ -178,6 +200,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [moreOpen, setMoreOpen] = useState(false);
 	const settledPathname = useSettledPathname();
+	useStocksChangedRefresh();
 
 	// Ctrl+K opens the stock jump from anywhere; "/" too, outside text fields.
 	useEffect(() => {

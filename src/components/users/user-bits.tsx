@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar";
 import { Badge } from "#/components/ui/badge";
+import { mediaUrl } from "#/lib/media";
 import { cn } from "#/lib/utils";
 import type { AdminUser } from "#/types/users";
 
@@ -23,7 +24,7 @@ export function UserAvatar({
 	return (
 		<span className="relative inline-flex shrink-0">
 			<Avatar className={cn("size-9", className)}>
-				{user.image && <AvatarImage src={user.image} alt="" />}
+				{user.image && <AvatarImage src={mediaUrl(user.image)} alt="" />}
 				<AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">{initials(user.name)}</AvatarFallback>
 			</Avatar>
 			{user.online && (

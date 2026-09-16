@@ -18,6 +18,7 @@ import {
 } from "#/components/ui/sidebar";
 import useSession from "#/hooks/use-session";
 import { authClient } from "#/lib/auth-client";
+import { mediaUrl } from "#/lib/media";
 
 export function NavUser() {
 	const { isMobile } = useSidebar();
@@ -46,7 +47,7 @@ export function NavUser() {
 						>
 							<Avatar className="h-8 w-8 rounded-lg">
 								<AvatarImage
-									src={session.user.image ?? ""}
+									src={mediaUrl(session.user.image)}
 									alt={session.user.name ?? ""}
 								/>
 								<AvatarFallback className="rounded-lg">CN</AvatarFallback>
@@ -68,7 +69,7 @@ export function NavUser() {
 							<div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
 								<Avatar className="h-8 w-8 rounded-lg">
 									<AvatarImage
-										src={session.user.image ?? ""}
+										src={mediaUrl(session.user.image)}
 										alt={session.user.name ?? ""}
 									/>
 									<AvatarFallback className="rounded-lg">CN</AvatarFallback>
