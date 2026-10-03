@@ -43,6 +43,15 @@
     --gain-muted: oklch(0.585 0.145 156.5 / 12%);
     --loss: oklch(0.577 0.223 27.2);
     --loss-muted: oklch(0.577 0.223 27.2 / 12%);
+    /* Sector colours: distinct hues that steer clear of gain green and loss red. */
+    --sector-1: oklch(0.6 0.17 255);
+    --sector-2: oklch(0.75 0.15 75);
+    --sector-3: oklch(0.58 0.2 300);
+    --sector-4: oklch(0.66 0.11 195);
+    --sector-5: oklch(0.63 0.2 350);
+    --sector-6: oklch(0.68 0.16 45);
+    --sector-7: oklch(0.72 0.15 120);
+    --sector-8: oklch(0.5 0.15 275);
 }
 
 .dark {
@@ -81,6 +90,14 @@
     --gain-muted: oklch(0.735 0.163 156.5 / 18%);
     --loss: oklch(0.704 0.191 22.2);
     --loss-muted: oklch(0.704 0.191 22.2 / 18%);
+    --sector-1: oklch(0.7 0.15 255);
+    --sector-2: oklch(0.82 0.14 80);
+    --sector-3: oklch(0.7 0.17 300);
+    --sector-4: oklch(0.77 0.11 195);
+    --sector-5: oklch(0.72 0.17 350);
+    --sector-6: oklch(0.76 0.15 50);
+    --sector-7: oklch(0.82 0.15 120);
+    --sector-8: oklch(0.62 0.15 275);
 }
 
 @theme inline {
