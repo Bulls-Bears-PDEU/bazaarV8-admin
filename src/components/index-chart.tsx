@@ -52,7 +52,8 @@ export function IndexChart({
 				textColor: colors.text,
 				fontFamily: "DM Mono, monospace",
 				fontSize: colors.fontSize,
-				attributionLogo: false,
+				// TradingView's logo and link, which its licence asks for.
+				attributionLogo: true,
 			},
 			height: 240,
 			width: container.clientWidth,

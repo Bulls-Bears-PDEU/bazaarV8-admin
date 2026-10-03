@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { addNews, deleteNews, getAllNews, newsErrorMessage, setNewsReleased, updateNews } from "#/api/news";
 import { NewsEditor } from "#/components/news-editor";
 import { PageHeader } from "#/components/page-header";
-import { Stat } from "#/components/stat";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
@@ -26,7 +25,6 @@ import {
 } from "#/components/ui/dropdown-menu";
 import { Loading } from "#/components/ui/loading";
 import { Spinner } from "#/components/ui/spinner";
-import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
 import useSocket from "#/hooks/use-socket";
 import { formatCountdown, formatDateTime, formatDuration } from "#/lib/format";
 import { cn } from "#/lib/utils";
@@ -41,6 +39,58 @@ const MAX_CHIPS = 4;
 
 type Status = "live" | "scheduled" | "hidden";
 type Filter = "all" | Status;
+
+// What an empty list means, filter by filter.
+const EMPTY: Record<Filter, string> = {
+	all: "No stories yet.",
+	live: "No story is on the players' feed right now.",
+	scheduled: "Nothing is scheduled to go out.",
+	hidden: "No story has been taken down.",
+};
+
+/**
+ * The status counts, which double as the list's filter: one row instead of
+ * a summary plus a separate filter strip repeating the same numbers.
+ */
+function FilterCards({
+	cards,
+	filter,
+	onSelect,
+}: {
+	cards: { value: Filter; label: string; count: number; hint: string; dot?: boolean }[];
+	filter: Filter;
+	onSelect: (filter: Filter) => void;
+}) {
+	return (
+		<fieldset className="m-0 grid min-w-0 grid-cols-2 gap-2 border-0 p-0 lg:grid-cols-4">
+			<legend className="sr-only">Show stories</legend>
+			{cards.map((card) => {
+				const active = filter === card.value;
+				return (
+					<button
+						key={card.value}
+						type="button"
+						aria-pressed={active}
+						onClick={() => onSelect(card.value)}
+						className={cn(
+							"flex flex-col gap-1 rounded-xl border bg-card px-4 py-3 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50",
+							active && "border-foreground/40 bg-muted/60 ring-1 ring-foreground/20",
+						)}
+					>
+						<span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+							{card.dot && card.count > 0 && (
+								<span className="size-1.5 rounded-full bg-gain" aria-hidden="true" />
+							)}
+							{card.label}
+						</span>
+						<span className="font-mono text-2xl leading-tight font-medium tabular-nums">{card.count}</span>
+						<span className="min-h-4 text-xs text-pretty text-muted-foreground">{card.hint}</span>
+					</button>
+				);
+			})}
+		</fieldset>
+	);
+}
 
 const statusOf = (news: News): Status =>
 	news.isReleased ? "live" : news.first_released_at ? "hidden" : "scheduled";
@@ -152,42 +202,43 @@ function RouteComponent() {
 				}
 			/>
 
-			<div className="grid grid-cols-2 gap-4 rounded-xl border p-4 sm:grid-cols-4">
-				<Stat label="Live" value={counts.live} />
-				<Stat label="Scheduled" value={counts.scheduled} />
-				<Stat label="Hidden" value={counts.hidden} />
-				<Stat
-					label="Next release"
-					value={nextScheduled ? formatCountdown(nextScheduled.release_at, now) : "—"}
-					hint={nextScheduled?.title}
-				/>
-			</div>
-
-			<ToggleGroup
-				type="single"
-				variant="outline"
-				size="sm"
-				value={filter}
-				onValueChange={(value) => value && setFilter(value as Filter)}
-				className="self-start"
-			>
-				<ToggleGroupItem value="all" className="px-3">
-					All {stories.length}
-				</ToggleGroupItem>
-				<ToggleGroupItem value="live" className="px-3">
-					Live {counts.live}
-				</ToggleGroupItem>
-				<ToggleGroupItem value="scheduled" className="px-3">
-					Scheduled {counts.scheduled}
-				</ToggleGroupItem>
-				<ToggleGroupItem value="hidden" className="px-3">
-					Hidden {counts.hidden}
-				</ToggleGroupItem>
-			</ToggleGroup>
+			<FilterCards
+				filter={filter}
+				onSelect={setFilter}
+				cards={[
+					{
+						value: "all",
+						label: "All stories",
+						count: stories.length,
+						hint: "Everything written so far",
+					},
+					{
+						value: "live",
+						label: "Live",
+						count: counts.live,
+						hint: "On the players' feed now",
+						dot: true,
+					},
+					{
+						value: "scheduled",
+						label: "Scheduled",
+						count: counts.scheduled,
+						hint: nextScheduled
+							? `Next goes out ${formatCountdown(nextScheduled.release_at, now)}`
+							: "Go out on their own at the set time",
+					},
+					{
+						value: "hidden",
+						label: "Hidden",
+						count: counts.hidden,
+						hint: "Taken down after going out",
+					},
+				]}
+			/>
 
 			{visible.length === 0 ? (
 				<div className="rounded-lg border border-dashed px-4 py-16 text-center text-sm text-muted-foreground">
-					{stories.length === 0 ? "No stories yet. Write the first one." : "Nothing here."}
+					{stories.length === 0 ? "No stories yet. Write the first one." : EMPTY[filter]}
 				</div>
 			) : (
 				<ul className="flex flex-col divide-y rounded-lg border">

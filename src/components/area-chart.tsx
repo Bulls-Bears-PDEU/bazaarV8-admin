@@ -116,7 +116,8 @@ export function AreaChart({
 				textColor: colors.text,
 				fontFamily: "DM Mono, monospace",
 				fontSize: colors.fontSize,
-				attributionLogo: false,
+				// TradingView's logo and link, which its licence asks for.
+				attributionLogo: true,
 			},
 			grid: { vertLines: { visible: false }, horzLines: { color: colors.grid } },
 			crosshair: {

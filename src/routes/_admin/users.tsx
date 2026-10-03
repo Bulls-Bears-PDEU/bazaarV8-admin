@@ -27,6 +27,7 @@ import {
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select";
+import { Input } from "#/components/ui/input";
 import { Skeleton } from "#/components/ui/skeleton";
 import { Spinner } from "#/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "#/components/ui/table";
@@ -120,25 +121,13 @@ function UsersPage() {
 
 	// Typing updates the box at once and the query a moment later.
 	const [text, setText] = useState(search.q ?? "");
+	const searchRef = useRef<HTMLInputElement>(null);
 	useEffect(() => {
 		const handle = setTimeout(() => {
 			if ((search.q ?? "") !== text.trim()) setSearch({ q: text.trim() || undefined });
 		}, 250);
 		return () => clearTimeout(handle);
 	});
-	const searchRef = useRef<HTMLInputElement>(null);
-	useEffect(() => {
-		// "/" jumps to search, as on most admin tools.
-		const onKey = (event: KeyboardEvent) => {
-			const target = event.target as HTMLElement;
-			if (event.key === "/" && !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) && !target.isContentEditable) {
-				event.preventDefault();
-				searchRef.current?.focus();
-			}
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, []);
 
 	const query = { search: search.q, status, role, sort, direction, page, page_size: pageSize };
 	const list = useQuery({
@@ -202,14 +191,15 @@ function UsersPage() {
 			<div className="flex flex-wrap items-center gap-2">
 				<div className="relative min-w-0 flex-1 basis-64">
 					<Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-					<input
+					<Input
 						ref={searchRef}
 						type="search"
+						data-slash-search
 						value={text}
 						onChange={(event) => setText(event.target.value)}
 						placeholder="Search by name or email"
 						aria-label="Search users by name or email"
-						className="h-9 w-full rounded-lg border border-input bg-background pr-16 pl-9 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 [&::-webkit-search-cancel-button]:hidden"
+						className="pr-16 pl-9 [&::-webkit-search-cancel-button]:hidden"
 					/>
 					{text ? (
 						<button
@@ -232,7 +222,7 @@ function UsersPage() {
 				</div>
 
 				<Select value={role} onValueChange={(value) => setSearch({ role: value === "all" ? undefined : (value as RoleFilter) })}>
-					<SelectTrigger className="h-9 w-40" aria-label="Filter by role">
+					<SelectTrigger className="w-40" aria-label="Filter by role">
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
@@ -246,7 +236,7 @@ function UsersPage() {
 
 				<div className="flex items-center">
 					<Select value={sort} onValueChange={(value) => setSearch({ sort: value as UserSort, dir: undefined })}>
-						<SelectTrigger className="h-9 w-40 rounded-r-none" aria-label="Sort by">
+						<SelectTrigger className="w-40 rounded-r-none" aria-label="Sort by">
 							<span className="text-muted-foreground">Sort:</span>
 							<SelectValue />
 						</SelectTrigger>
@@ -261,7 +251,7 @@ function UsersPage() {
 					<Button
 						variant="outline"
 						size="icon"
-						className="size-9 rounded-l-none border-l-0"
+						className="rounded-l-none border-l-0"
 						onClick={() => setSearch({ dir: direction === "asc" ? "desc" : "asc" })}
 						aria-label={direction === "asc" ? "Sorted ascending; sort descending" : "Sorted descending; sort ascending"}
 					>

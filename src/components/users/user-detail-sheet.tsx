@@ -25,6 +25,7 @@ import {
 } from "#/components/ui/sheet";
 import { Skeleton } from "#/components/ui/skeleton";
 import { Spinner } from "#/components/ui/spinner";
+import { Switch } from "#/components/ui/switch";
 import { GodModePanel } from "#/components/users/god-mode-panel";
 import {
 	USERS_KEY,
@@ -271,7 +272,9 @@ function DetailBody({
 										? `of ${detail.rank.total_players}`
 										: user.role === "admin"
 											? "Organisers are not ranked"
-											: undefined
+											: user.hidden_from_leaderboard
+												? "Hidden from the leaderboard"
+												: undefined
 								}
 							/>
 							<Stat label="Cash" value={formatINR(money.cash_balance)} />
@@ -399,7 +402,11 @@ function EditSection({ detail }: { detail: UserDetail }) {
 					? "Photo removed."
 					: data.cash_balance !== undefined
 						? "Cash updated."
-						: "Name updated.",
+						: data.hidden_from_leaderboard !== undefined
+							? data.hidden_from_leaderboard
+								? "Hidden from the leaderboard."
+								: "Shown on the leaderboard."
+							: "Name updated.",
 			);
 		},
 		onError: (error) =>
@@ -428,7 +435,7 @@ function EditSection({ detail }: { detail: UserDetail }) {
 							<UserRound className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
 							<Input
 								id="edit-name"
-								className="h-9 pl-8"
+								className="pl-8"
 								value={name}
 								maxLength={70}
 								onChange={(event) => setName(event.target.value)}
@@ -460,7 +467,7 @@ function EditSection({ detail }: { detail: UserDetail }) {
 					<div className="flex gap-2">
 						<Input
 							id="edit-cash"
-							className="h-9 flex-1 font-mono tabular-nums"
+							className="flex-1 font-mono tabular-nums"
 							inputMode="decimal"
 							value={cash}
 							onChange={(event) => setCash(event.target.value)}
@@ -481,6 +488,30 @@ function EditSection({ detail }: { detail: UserDetail }) {
 						untouched.
 					</p>
 				</form>
+
+				{user.role === "user" && (
+					<div className="flex items-start justify-between gap-3">
+						<div className="flex flex-col gap-1">
+							<Label htmlFor="edit-hidden">Hide from leaderboard</Label>
+							<p
+								id="edit-hidden-hint"
+								className="text-xs text-muted-foreground"
+							>
+								For test or house accounts. They keep trading as normal but
+								are not ranked, and other players move up a place.
+							</p>
+						</div>
+						<Switch
+							id="edit-hidden"
+							checked={user.hidden_from_leaderboard}
+							onCheckedChange={(checked) =>
+								save.mutate({ hidden_from_leaderboard: checked })
+							}
+							disabled={save.isPending}
+							aria-describedby="edit-hidden-hint"
+						/>
+					</div>
+				)}
 
 				{user.image && (
 					<div className="flex items-center justify-between gap-3">

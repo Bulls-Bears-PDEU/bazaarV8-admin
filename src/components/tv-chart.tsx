@@ -172,7 +172,8 @@ const TVChart = ({ stockId, symbol }: { stockId: string; symbol: string }) => {
 				textColor: colors.text,
 				fontFamily: "DM Mono, monospace",
 				fontSize: colors.fontSize,
-				attributionLogo: false,
+				// TradingView's logo and link, which its licence asks for.
+				attributionLogo: true,
 			},
 			grid: {
 				vertLines: { color: colors.grid },

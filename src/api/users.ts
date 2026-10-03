@@ -24,7 +24,12 @@ export const getUserDetail = async (userId: string) =>
 
 export const updateUser = async (
 	userId: string,
-	data: { name?: string; remove_avatar?: boolean; cash_balance?: number },
+	data: {
+		name?: string;
+		remove_avatar?: boolean;
+		cash_balance?: number;
+		hidden_from_leaderboard?: boolean;
+	},
 ) => (await axios.patch<UserDetail>(`/admin/users/${encodeURIComponent(userId)}`, data)).data;
 
 export const runBulkAction = async (input: {

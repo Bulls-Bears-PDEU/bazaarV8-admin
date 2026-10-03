@@ -11,8 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/_admin'
-import { Route as AboutRouteImport } from './routes/about'
 import { Route as Not_authorizedRouteImport } from './routes/not_authorized'
+import { Route as AdminAboutRouteImport } from './routes/_admin/about'
 import { Route as AdminActionsRouteImport } from './routes/_admin/actions'
 import { Route as AdminIposRouteImport } from './routes/_admin/ipos'
 import { Route as AdminLeaderboardRouteImport } from './routes/_admin/leaderboard'
@@ -34,15 +34,15 @@ const AdminRoute = AdminRouteImport.update({
   id: '/_admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const Not_authorizedRoute = Not_authorizedRouteImport.update({
   id: '/not_authorized',
   path: '/not_authorized',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAboutRoute = AdminAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => AdminRoute,
 } as any)
 const AdminActionsRoute = AdminActionsRouteImport.update({
   id: '/actions',
@@ -102,8 +102,8 @@ const AdminStockIdRoute = AdminStockIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
   '/not_authorized': typeof Not_authorizedRoute
+  '/about': typeof AdminAboutRoute
   '/actions': typeof AdminActionsRoute
   '/ipos': typeof AdminIposRoute
   '/leaderboard': typeof AdminLeaderboardRoute
@@ -118,8 +118,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
   '/not_authorized': typeof Not_authorizedRoute
+  '/about': typeof AdminAboutRoute
   '/actions': typeof AdminActionsRoute
   '/ipos': typeof AdminIposRoute
   '/leaderboard': typeof AdminLeaderboardRoute
@@ -136,8 +136,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_admin': typeof AdminRouteWithChildren
-  '/about': typeof AboutRoute
   '/not_authorized': typeof Not_authorizedRoute
+  '/_admin/about': typeof AdminAboutRoute
   '/_admin/actions': typeof AdminActionsRoute
   '/_admin/ipos': typeof AdminIposRoute
   '/_admin/leaderboard': typeof AdminLeaderboardRoute
@@ -154,8 +154,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/about'
     | '/not_authorized'
+    | '/about'
     | '/actions'
     | '/ipos'
     | '/leaderboard'
@@ -170,8 +170,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/about'
     | '/not_authorized'
+    | '/about'
     | '/actions'
     | '/ipos'
     | '/leaderboard'
@@ -187,8 +187,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_admin'
-    | '/about'
     | '/not_authorized'
+    | '/_admin/about'
     | '/_admin/actions'
     | '/_admin/ipos'
     | '/_admin/leaderboard'
@@ -205,7 +205,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
-  AboutRoute: typeof AboutRoute
   Not_authorizedRoute: typeof Not_authorizedRoute
   AuthResetpasswordRoute: typeof AuthResetpasswordRoute
   AuthSigninRoute: typeof AuthSigninRoute
@@ -228,19 +227,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/not_authorized': {
       id: '/not_authorized'
       path: '/not_authorized'
       fullPath: '/not_authorized'
       preLoaderRoute: typeof Not_authorizedRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_admin/about': {
+      id: '/_admin/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AdminAboutRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/_admin/actions': {
       id: '/_admin/actions'
@@ -323,6 +322,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminAboutRoute: typeof AdminAboutRoute
   AdminActionsRoute: typeof AdminActionsRoute
   AdminIposRoute: typeof AdminIposRoute
   AdminLeaderboardRoute: typeof AdminLeaderboardRoute
@@ -334,6 +334,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAboutRoute: AdminAboutRoute,
   AdminActionsRoute: AdminActionsRoute,
   AdminIposRoute: AdminIposRoute,
   AdminLeaderboardRoute: AdminLeaderboardRoute,
@@ -349,7 +350,6 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
-  AboutRoute: AboutRoute,
   Not_authorizedRoute: Not_authorizedRoute,
   AuthResetpasswordRoute: AuthResetpasswordRoute,
   AuthSigninRoute: AuthSigninRoute,

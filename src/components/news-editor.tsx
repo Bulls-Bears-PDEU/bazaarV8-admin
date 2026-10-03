@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Lock, Plus, Search, Send, Trash2, X } from "lucide-
 import { useMemo, useState } from "react";
 import { getAllStocks } from "#/api/stocks";
 import { StockLogo } from "#/components/stock-logo";
+import { DateTimePicker } from "#/components/date-time-picker";
 import { Button } from "#/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
@@ -326,12 +327,12 @@ function ReleaseSection({ form, update }: { form: FormState; update: (patch: Par
 			{form.releaseMode === "schedule" && (
 				<div className="flex flex-col gap-2">
 					<div className="flex flex-wrap items-center gap-2">
-						<Input
-							type="datetime-local"
+						<DateTimePicker
 							aria-label="Release time"
 							className="w-auto"
 							value={form.releaseAt}
-							onChange={(e) => update({ releaseAt: e.target.value })}
+							onChange={(releaseAt) => update({ releaseAt })}
+							disablePast
 						/>
 						{SCHEDULE_PRESETS.map((minutes) => (
 							<Button
@@ -509,14 +510,14 @@ function ImpactChip({ pct }: { pct: number }) {
 
 function DirectionToggle({ value, onChange, label }: { value: Direction; onChange: (value: Direction) => void; label: string }) {
 	return (
-		<fieldset aria-label={label} className="m-0 flex shrink-0 overflow-hidden rounded-lg border p-0">
+		<fieldset aria-label={label} className="m-0 flex h-8 shrink-0 overflow-hidden rounded-lg border p-0">
 			<button
 				type="button"
 				aria-pressed={value === "up"}
 				aria-label="Up"
 				onClick={() => onChange("up")}
 				className={cn(
-					"flex size-8 items-center justify-center text-muted-foreground transition-colors hover:bg-muted",
+					"flex h-full w-8 items-center justify-center text-muted-foreground transition-colors hover:bg-muted",
 					value === "up" && "bg-gain-muted text-gain hover:bg-gain-muted",
 				)}
 			>
@@ -528,7 +529,7 @@ function DirectionToggle({ value, onChange, label }: { value: Direction; onChang
 				aria-label="Down"
 				onClick={() => onChange("down")}
 				className={cn(
-					"flex size-8 items-center justify-center border-l text-muted-foreground transition-colors hover:bg-muted",
+					"flex h-full w-8 items-center justify-center border-l text-muted-foreground transition-colors hover:bg-muted",
 					value === "down" && "bg-loss-muted text-loss hover:bg-loss-muted",
 				)}
 			>
@@ -587,7 +588,7 @@ function DurationSelect({
 }) {
 	return (
 		<Select value={value} onValueChange={onChange}>
-			<SelectTrigger size="sm" className="h-8 w-36 shrink-0 bg-background" aria-label={label}>
+			<SelectTrigger className="w-36 shrink-0 bg-background" aria-label={label}>
 				<SelectValue placeholder="Duration" />
 			</SelectTrigger>
 			<SelectContent>
@@ -645,7 +646,7 @@ function ImpactRowEditor({
 					defaultDuration={defaultDuration}
 					label={`${symbol} time to full effect`}
 				/>
-				<Button type="button" variant="ghost" size="icon-sm" onClick={onRemove} aria-label={`Remove ${symbol}`}>
+				<Button type="button" variant="ghost" size="icon" onClick={onRemove} aria-label={`Remove ${symbol}`}>
 					<X />
 				</Button>
 			</div>
@@ -687,7 +688,6 @@ function BulkBar({
 					<Button
 						type="button"
 						variant="secondary"
-						size="sm"
 						onClick={() => onApply({ direction, magnitude, duration })}
 					>
 						Apply

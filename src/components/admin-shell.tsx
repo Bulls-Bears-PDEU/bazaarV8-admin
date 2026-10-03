@@ -4,6 +4,7 @@ import {
 	ChartCandlestick,
 	Ellipsis,
 	Gauge,
+	Info,
 	LogOut,
 	Newspaper,
 	Rocket,
@@ -54,7 +55,15 @@ import { mediaUrl } from "#/lib/media";
 import { cn } from "#/lib/utils";
 
 type NavItem = {
-	to: "/market" | "/stocks" | "/users" | "/ipos" | "/news" | "/leaderboard" | "/actions";
+	to:
+		| "/market"
+		| "/stocks"
+		| "/users"
+		| "/ipos"
+		| "/news"
+		| "/leaderboard"
+		| "/actions"
+		| "/about";
 	label: string;
 	icon: typeof Gauge;
 };
@@ -73,7 +82,10 @@ const NAV: NavItem[] = [
 const MOBILE_TABS = NAV.filter((item) =>
 	["/market", "/stocks", "/users", "/news"].includes(item.to),
 );
-const MOBILE_MORE = NAV.filter((item) => !MOBILE_TABS.includes(item));
+const MOBILE_MORE: NavItem[] = [
+	...NAV.filter((item) => !MOBILE_TABS.includes(item)),
+	{ to: "/about", label: "About", icon: Info },
+];
 
 const initials = (name: string | undefined) =>
 	(name ?? "")
@@ -117,6 +129,12 @@ function UserMenu() {
 					</span>
 				</DropdownMenuLabel>
 				<DropdownMenuSeparator />
+				<DropdownMenuItem asChild>
+					<Link to="/about">
+						<Info />
+						About Bazaar
+					</Link>
+				</DropdownMenuItem>
 				<DropdownMenuItem onClick={signOut}>
 					<LogOut />
 					Sign out
@@ -202,19 +220,26 @@ export function AdminShell({ children }: { children: ReactNode }) {
 	const settledPathname = useSettledPathname();
 	useStocksChangedRefresh();
 
-	// Ctrl+K opens the stock jump from anywhere; "/" too, outside text fields.
+	// Ctrl+K opens the stock jump from anywhere; "/" too, outside text fields,
+	// unless the page has its own search box.
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
 			const typing =
 				event.target instanceof HTMLElement &&
 				(event.target.isContentEditable ||
 					["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName));
-			if (
-				(event.key === "k" && (event.metaKey || event.ctrlKey)) ||
-				(event.key === "/" && !typing)
-			) {
+			if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
 				event.preventDefault();
 				setSearchOpen(true);
+			} else if (event.key === "/" && !typing) {
+				event.preventDefault();
+				// A page with its own search box (marked data-slash-search, and
+				// showing a "/" hint) gets the key; elsewhere it opens the jump.
+				const pageSearch = document.querySelector<HTMLElement>(
+					"[data-slash-search]",
+				);
+				if (pageSearch) pageSearch.focus();
+				else setSearchOpen(true);
 			}
 		};
 		window.addEventListener("keydown", onKeyDown);

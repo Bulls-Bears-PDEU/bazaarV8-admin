@@ -379,12 +379,14 @@ export function ChartToggle<T extends string>({
 		>
 			{options.map((option) => {
 				const Icon = option.icon;
+				// Styled from aria-checked, not data-state: a TooltipTrigger writes its
+				// own data-state onto the item, which hid which option was chosen.
 				const item = (
 					<ToggleGroupItem
 						key={option.value}
 						value={option.value}
 						aria-label={option.label}
-						className="h-7 min-w-7 gap-1 rounded-md px-1.5 text-xs font-medium text-muted-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+						className="h-7 min-w-7 gap-1 rounded-md px-1.5 text-xs font-medium text-muted-foreground aria-checked:bg-background aria-checked:text-foreground aria-checked:shadow-sm"
 					>
 						{Icon ? <Icon className="size-4" /> : option.text}
 					</ToggleGroupItem>

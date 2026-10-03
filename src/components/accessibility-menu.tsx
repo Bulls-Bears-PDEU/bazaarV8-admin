@@ -1,5 +1,5 @@
 import {
-	Accessibility,
+	PersonStanding,
 	ALargeSmall,
 	Contrast,
 	Eye,
@@ -61,7 +61,7 @@ const TOGGLES: Toggle[] = [
 
 const SHORTCUTS: { keys: string[]; action: string }[] = [
 	{ keys: ["Ctrl", "K"], action: "Jump to a stock" },
-	{ keys: ["/"], action: "Jump to a stock" },
+	{ keys: ["/"], action: "Search this page, or jump to a stock" },
 	{ keys: ["?"], action: "Show these shortcuts" },
 	{ keys: ["Tab"], action: "Move to the next control; the first stop skips to the content" },
 	{ keys: ["←", "→"], action: "Scroll a focused chart back or forward" },
@@ -101,7 +101,7 @@ export function AccessibilityMenu() {
 			<Popover>
 				<PopoverTrigger asChild>
 					<Button variant="ghost" size="icon" className="relative" aria-label="Accessibility settings">
-						<Accessibility className="size-[18px]" />
+						<PersonStanding className="size-[18px]" />
 						{changed && (
 							<span
 								aria-hidden="true"
@@ -112,7 +112,7 @@ export function AccessibilityMenu() {
 				</PopoverTrigger>
 				<PopoverContent align="end" className="w-[min(20rem,calc(100vw-2rem))] gap-0 p-0">
 					<div className="flex items-center gap-2 border-b px-4 py-3">
-						<Accessibility className="size-4 text-primary" />
+						<PersonStanding className="size-4 text-primary" />
 						<span className="font-medium">Accessibility</span>
 					</div>
 

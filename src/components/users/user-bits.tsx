@@ -67,6 +67,11 @@ export function StatusBadges({ user, className }: { user: AdminUser; className?:
 					Profile not set up
 				</Badge>
 			)}
+			{user.role === "user" && user.hidden_from_leaderboard && (
+				<Badge variant="outline" className="border-dashed text-muted-foreground">
+					Hidden from leaderboard
+				</Badge>
+			)}
 		</span>
 	);
 }

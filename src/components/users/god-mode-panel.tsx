@@ -35,7 +35,6 @@ import {
 } from "#/components/ui/select";
 import { Skeleton } from "#/components/ui/skeleton";
 import { Spinner } from "#/components/ui/spinner";
-import { ToggleGroup, ToggleGroupItem } from "#/components/ui/toggle-group";
 import { ConfirmDangerous } from "#/components/users/confirm-dangerous";
 import { USERS_KEY } from "#/components/users/user-actions";
 import { formatINR, formatQty, formatSignedINR, trendText } from "#/lib/format";
@@ -89,10 +88,10 @@ export function GodModePanel({
 			<p className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs text-muted-foreground">
 				<Zap className="mt-0.5 size-3.5 shrink-0 text-destructive" />
 				<span>
-					These act on{" "}
-					<span className="font-medium text-foreground">{userName}</span>'s
-					account immediately and without telling them. Every one is written to
-					the action log.
+					The actions below change{" "}
+					<span className="font-medium text-foreground">{userName}’s</span>{" "}
+					account immediately, and they are not notified. Each action is
+					recorded in the action log.
 				</span>
 			</p>
 
@@ -250,26 +249,38 @@ function PositionControls({
 	onDone: () => void;
 }) {
 	const [stockId, setStockId] = useState("");
-	const [action, setAction] = useState<"buy" | "short">("buy");
 	const [quantity, setQuantity] = useState("");
 	const [flattening, setFlattening] = useState(false);
 
 	const qty = Number(quantity);
-	const canOpen = stockId !== "" && Number.isInteger(qty) && qty > 0;
+	const ready = stockId !== "" && Number.isInteger(qty) && qty > 0;
+	// Sell only ever sells shares they own; a short is closed from its row.
+	const held = view.positions.find((p) => p.stock_id === Number(stockId));
+	const sharesOwned = held && held.volume > 0 ? held.volume : 0;
+	const symbol = stocks.find((s) => s.id === Number(stockId))?.symbol;
 
-	const open = useGodAction(
+	const buy = useGodAction(
 		() =>
 			openPosition(userId, {
 				stock_id: Number(stockId),
-				action,
+				action: "buy",
 				quantity: qty,
 			}),
-		() => `Opened ${formatQty(qty)} for ${userName}`,
+		() => `Bought ${formatQty(qty)} ${symbol ?? "shares"} for ${userName}`,
 		() => {
 			setQuantity("");
 			onDone();
 		},
 	);
+	const sell = useGodAction(
+		() => closePosition(userId, Number(stockId), qty),
+		() => `Sold ${formatQty(qty)} ${symbol ?? "shares"} for ${userName}`,
+		() => {
+			setQuantity("");
+			onDone();
+		},
+	);
+	const trading = buy.isPending || sell.isPending;
 	const close = useGodAction(
 		(stock: number) => closePosition(userId, stock),
 		() => "Position closed",
@@ -289,7 +300,7 @@ function PositionControls({
 		<Block
 			icon={Layers}
 			title="Positions"
-			hint="Filled at the live price, through the same settlement a real order uses."
+			hint="Trades fill at the live price, just like a player's own market order."
 		>
 			{view.positions.length === 0 ? (
 				<p className="text-xs text-muted-foreground">Holding nothing.</p>
@@ -356,9 +367,9 @@ function PositionControls({
 			)}
 
 			<div className="flex flex-col gap-2 border-t pt-2.5">
-				<Label className="text-xs text-muted-foreground">Open a new one</Label>
+				<Label className="text-xs text-muted-foreground">Buy or sell</Label>
 				<Select value={stockId} onValueChange={setStockId}>
-					<SelectTrigger size="sm">
+					<SelectTrigger className="w-full">
 						<SelectValue placeholder="Pick a stock" />
 					</SelectTrigger>
 					<SelectContent>
@@ -370,49 +381,50 @@ function PositionControls({
 					</SelectContent>
 				</Select>
 				<div className="flex gap-2">
-					<ToggleGroup
-						type="single"
-						spacing={1}
-						value={action}
-						onValueChange={(next) => next && setAction(next as "buy" | "short")}
-						aria-label="Direction"
-					>
-						<ToggleGroupItem
-							value="buy"
-							variant="outline"
-							className="data-[state=on]:text-gain"
-						>
-							<TrendingUp />
-							Buy
-						</ToggleGroupItem>
-						<ToggleGroupItem
-							value="short"
-							variant="outline"
-							className="data-[state=on]:text-loss"
-						>
-							<TrendingDown />
-							Short
-						</ToggleGroupItem>
-					</ToggleGroup>
 					<Input
 						inputMode="numeric"
 						placeholder="Shares"
 						aria-label="Shares"
-						className="h-8 flex-1 font-mono tabular-nums"
+						className="flex-1 font-mono tabular-nums"
 						value={quantity}
 						onChange={(event) =>
 							setQuantity(event.target.value.replace(/[^\d]/g, ""))
 						}
 					/>
 					<Button
-						size="sm"
-						disabled={!canOpen || open.isPending}
-						onClick={() => open.mutate(undefined)}
+						variant="outline"
+						className="text-gain"
+						disabled={!ready || trading}
+						onClick={() => buy.mutate(undefined)}
 					>
-						{open.isPending && <Spinner data-icon="inline-start" />}
-						Open
+						{buy.isPending ? (
+							<Spinner data-icon="inline-start" />
+						) : (
+							<TrendingUp data-icon="inline-start" />
+						)}
+						Buy
+					</Button>
+					<Button
+						variant="outline"
+						className="text-loss"
+						disabled={!ready || trading || qty > sharesOwned}
+						onClick={() => sell.mutate(undefined)}
+					>
+						{sell.isPending ? (
+							<Spinner data-icon="inline-start" />
+						) : (
+							<TrendingDown data-icon="inline-start" />
+						)}
+						Sell
 					</Button>
 				</div>
+				{stockId !== "" && (
+					<p className="text-xs text-muted-foreground">
+						{sharesOwned > 0
+							? `They own ${formatQty(sharesOwned)} ${symbol ?? ""}, so they can sell up to that.`
+							: `They own no ${symbol ?? "shares"}, so there is nothing to sell.`}
+					</p>
+				)}
 			</div>
 
 			<ConfirmDangerous

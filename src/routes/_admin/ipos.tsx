@@ -2,33 +2,47 @@ import { formOptions, useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { type ColumnDef, flexRender, useTable } from "@tanstack/react-table";
+import { format } from "date-fns";
 import {
+	AlarmClock,
 	CalendarClock,
 	CircleCheck,
 	CircleDashed,
 	CirclePlay,
 	CircleStop,
 	CircleX,
+	ImageUp,
 	type LucideIcon,
+	Pencil,
 	Plus,
+	Scale,
+	X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { addIpo, getAllIposAdmin, updateIpoStatus } from "#/api/ipos";
+import {
+	addIpo,
+	getAllIposAdmin,
+	updateIpo,
+	updateIpoStatus,
+	uploadIpoLogo,
+} from "#/api/ipos";
 import { getAllSectors, getAllStocks } from "#/api/stocks";
+import { usersErrorMessage } from "#/api/users";
+import { DateTimePicker } from "#/components/date-time-picker";
+import { IpoAllotDialog } from "#/components/ipo-allot-dialog";
+import {
+	IpoLogoEditor,
+	LOGO_ACCEPTED,
+	logoFileProblem,
+} from "#/components/ipo-logo-editor";
 import { PageHeader } from "#/components/page-header";
+import { SectorCombobox } from "#/components/sector-combobox";
 import { SectionTitle, Stat } from "#/components/stat";
 import { StockLogo } from "#/components/stock-logo";
+import { Alert, AlertDescription, AlertTitle } from "#/components/ui/alert";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
-import {
-	Combobox,
-	ComboboxContent,
-	ComboboxEmpty,
-	ComboboxInput,
-	ComboboxItem,
-	ComboboxList,
-} from "#/components/ui/combobox";
 import {
 	Dialog,
 	DialogContent,
@@ -36,13 +50,14 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
-	DialogTrigger,
 } from "#/components/ui/dialog";
 import {
 	Field,
 	FieldDescription,
 	FieldGroup,
 	FieldLabel,
+	FieldLegend,
+	FieldSet,
 } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import { Loading } from "#/components/ui/loading";
@@ -96,7 +111,7 @@ const STATUS: Record<
 		label: "Closed",
 		icon: CircleStop,
 		badge: "bg-muted text-muted-foreground",
-		hint: "Bidding over, waiting to list",
+		hint: "Bidding over: allot, then list",
 	},
 	listed: {
 		label: "Listed",
@@ -124,24 +139,47 @@ const SECTIONS: { status: Ipo["status"]; empty: string }[] = [
 const inrPrice = (value: number | string) =>
 	Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
+// The schedule is only shown to players; nothing moves on its own. When a date
+// has passed and the IPO is still waiting on the organiser, the row says so.
+const overdueStep = (ipo: Ipo, now: number) => {
+	const passed = (date: string) => new Date(date).getTime() <= now;
+	if (ipo.status === "upcoming" && passed(ipo.open_date))
+		return "Opening time passed";
+	if (ipo.status === "open" && passed(ipo.close_date))
+		return "Closing time passed";
+	if (
+		ipo.status === "closed" &&
+		!ipo.allotment_completed_at &&
+		passed(ipo.allotment_date)
+	)
+		return "Allotment time passed";
+	return null;
+};
+
 function IpoTable({
 	ipos,
 	stockIdBySymbol,
+	onEdit,
 }: {
 	ipos: Ipo[];
 	stockIdBySymbol: Map<string, number>;
+	onEdit: (ipo: Ipo) => void;
 }) {
 	const queryClient = useQueryClient();
+	const [allotting, setAllotting] = useState<Ipo | null>(null);
 
 	const updateStatusMutation = useMutation({
 		mutationFn: ({ id, status }: { id: number; status: Ipo["status"] }) =>
 			updateIpoStatus(id, status),
-		onSuccess: async () => {
+		onSuccess: async (_, { status }) => {
 			toast.success("IPO status updated successfully.");
 			await queryClient.invalidateQueries({ queryKey: ["admin-ipos"] });
+			// Listing creates a stock; logos and links read the stock list.
+			if (status === "listed")
+				await queryClient.invalidateQueries({ queryKey: ["stocks"] });
 		},
 		onError: (error) => {
-			toast.error(error.message || "Failed to update IPO status.");
+			toast.error(usersErrorMessage(error, "Failed to update IPO status."));
 		},
 	});
 
@@ -153,7 +191,7 @@ function IpoTable({
 				const value = info.getValue<string>();
 				return (
 					<span className="flex items-center gap-2.5 font-mono font-medium">
-						<StockLogo symbol={value} />
+						<StockLogo symbol={value} logoUrl={info.row.original.logo_url} />
 						{value}
 					</span>
 				);
@@ -221,12 +259,35 @@ function IpoTable({
 			accessorKey: "status",
 			header: "Status",
 			cell: (info) => {
-				const { label, icon: Icon, badge } = STATUS[info.getValue<Ipo["status"]>()];
+				const {
+					label,
+					icon: Icon,
+					badge,
+				} = STATUS[info.getValue<Ipo["status"]>()];
+				const { status, allotment_completed_at, allotment_price } =
+					info.row.original;
+				const overdue = overdueStep(info.row.original, Date.now());
 				return (
-					<Badge variant="outline" className={badge}>
-						<Icon />
-						{label}
-					</Badge>
+					<span className="flex items-center gap-1.5">
+						<Badge variant="outline" className={badge}>
+							<Icon />
+							{label}
+						</Badge>
+						{overdue && (
+							<Badge
+								variant="outline"
+								className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+							>
+								<AlarmClock />
+								{overdue}
+							</Badge>
+						)}
+						{status === "closed" && allotment_completed_at && (
+							<Badge variant="secondary" className="font-mono tabular-nums">
+								Allotted ₹{inrPrice(allotment_price ?? 0)}
+							</Badge>
+						)}
+					</span>
 				);
 			},
 		},
@@ -234,10 +295,25 @@ function IpoTable({
 			id: "actions",
 			header: "",
 			cell: ({ row }) => {
-				const stockId = stockIdBySymbol.get(row.original.symbol.toUpperCase());
+				// The IPO records the stock it became; the symbol lookup only covers
+				// IPOs listed before that was recorded.
+				const stockId =
+					row.original.listed_stock_id ??
+					stockIdBySymbol.get(row.original.symbol.toUpperCase());
 
 				return (
 					<div className="flex justify-end gap-2">
+						{row.original.status !== "listed" &&
+							row.original.status !== "withdrawn" && (
+								<Button
+									size="sm"
+									variant="ghost"
+									onClick={() => onEdit(row.original)}
+								>
+									<Pencil data-icon="inline-start" />
+									Edit
+								</Button>
+							)}
 						{row.original.status === "dormant" && (
 							<Button
 								size="sm"
@@ -298,26 +374,39 @@ function IpoTable({
 								Close
 							</Button>
 						)}
-						{row.original.status === "closed" && (
-							<Button
-								size="sm"
-								variant="secondary"
-								onClick={() =>
-									updateStatusMutation.mutate({
-										id: row.original.id,
-										status: "listed",
-									})
-								}
-								disabled={updateStatusMutation.isPending}
-							>
-								{updateStatusMutation.isPending ? (
-									<Spinner data-icon="inline-start" />
-								) : (
-									<CircleCheck data-icon="inline-start" />
-								)}
-								List
-							</Button>
-						)}
+						{row.original.status === "closed" &&
+							!row.original.allotment_completed_at && (
+								<Button
+									size="sm"
+									variant="secondary"
+									onClick={() => setAllotting(row.original)}
+								>
+									<Scale data-icon="inline-start" />
+									Allot
+								</Button>
+							)}
+						{/* Listing turns allotments into shares, so it waits for one. */}
+						{row.original.status === "closed" &&
+							row.original.allotment_completed_at && (
+								<Button
+									size="sm"
+									variant="secondary"
+									onClick={() =>
+										updateStatusMutation.mutate({
+											id: row.original.id,
+											status: "listed",
+										})
+									}
+									disabled={updateStatusMutation.isPending}
+								>
+									{updateStatusMutation.isPending ? (
+										<Spinner data-icon="inline-start" />
+									) : (
+										<CircleCheck data-icon="inline-start" />
+									)}
+									List
+								</Button>
+							)}
 						{row.original.status === "listed" &&
 							(stockId ? (
 								<Button size="sm" variant="outline" asChild>
@@ -344,6 +433,7 @@ function IpoTable({
 
 	return (
 		<div className="overflow-x-auto rounded-lg border">
+			<IpoAllotDialog ipo={allotting} onClose={() => setAllotting(null)} />
 			<Table>
 				<TableHeader>
 					{table.getHeaderGroups().map((headerGroup) => (
@@ -388,8 +478,639 @@ function IpoTable({
 	);
 }
 
+// What each starting status means to players. Closed and listed are reached
+// from the table: listing creates the stock and credits allotments.
+const CREATE_STATUSES: { value: IpoStatus; label: string; hint: string }[] = [
+	{
+		value: "dormant",
+		label: "Dormant (draft)",
+		hint: "Saved for later. Players cannot see it until you release it.",
+	},
+	{
+		value: "upcoming",
+		label: "Upcoming",
+		hint: "Players see it announced, with its dates, but cannot apply yet.",
+	},
+	{
+		value: "open",
+		label: "Open",
+		hint: "Players can apply straight away.",
+	},
+];
+
+const createDefaults = {
+	name: "",
+	symbol: "",
+	sector: "",
+	min_price: "",
+	max_price: "",
+	listing_price: "",
+	lot_size: "",
+	shares_offered: "",
+	subscription_rate: "",
+	open_date: "",
+	close_date: "",
+	allotment_date: "",
+	status: "dormant" as IpoStatus,
+};
+
+// Blank numbers are left out: the backend applies optional ones' defaults and
+// names any required one that is missing.
+const optionalNumber = (value: string) =>
+	value.trim() === "" ? undefined : Number(value);
+
+// The picker gives the organiser's local time; sent as an instant.
+const instant = (value: string) =>
+	value ? new Date(value).toISOString() : undefined;
+
+// An IPO's saved values as the form holds them: strings, local times.
+const valuesFrom = (ipo: Ipo) => ({
+	name: ipo.name,
+	symbol: ipo.symbol,
+	sector: ipo.sector,
+	min_price: String(ipo.min_price),
+	max_price: String(ipo.max_price),
+	listing_price: Number(ipo.listing_price) > 0 ? String(ipo.listing_price) : "",
+	lot_size: String(ipo.lot_size),
+	shares_offered: String(ipo.shares_offered),
+	subscription_rate:
+		Number(ipo.starting_demand) > 0 ? String(ipo.starting_demand) : "",
+	open_date: format(new Date(ipo.open_date), "yyyy-MM-dd'T'HH:mm"),
+	close_date: format(new Date(ipo.close_date), "yyyy-MM-dd'T'HH:mm"),
+	allotment_date: format(new Date(ipo.allotment_date), "yyyy-MM-dd'T'HH:mm"),
+	status: ipo.status,
+});
+
+// Players' applications are built on these, so they are fixed once it opens.
+const termsLockedFor = (ipo: Ipo | null) =>
+	ipo !== null && ipo.status !== "dormant" && ipo.status !== "upcoming";
+
+/** Creates an IPO, or edits one when given it. */
+function IpoFormDialog({
+	sectors,
+	ipo,
+	open,
+	onOpenChange,
+}: {
+	sectors: string[];
+	ipo: Ipo | null;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+}) {
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+				{/* Keyed, so the form starts from the right IPO each time. */}
+				<IpoForm
+					key={ipo?.id ?? "new"}
+					sectors={sectors}
+					ipo={ipo}
+					onDone={() => onOpenChange(false)}
+				/>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function IpoForm({
+	sectors,
+	ipo,
+	onDone,
+}: {
+	sectors: string[];
+	ipo: Ipo | null;
+	onDone: () => void;
+}) {
+	const queryClient = useQueryClient();
+	const editing = ipo !== null;
+	const termsLocked = termsLockedFor(ipo);
+	const [logo, setLogo] = useState<File | null>(null);
+	const logoInput = useRef<HTMLInputElement>(null);
+
+	// A local preview of the chosen file, released when it changes.
+	const logoPreview = useMemo(
+		() => (logo ? URL.createObjectURL(logo) : null),
+		[logo],
+	);
+	useEffect(
+		() => () => {
+			if (logoPreview) URL.revokeObjectURL(logoPreview);
+		},
+		[logoPreview],
+	);
+
+	const form = useForm({
+		...formOptions({
+			defaultValues: ipo ? valuesFrom(ipo) : createDefaults,
+		}),
+		onSubmit: async ({ value }) => {
+			const details = {
+				name: value.name.trim(),
+				symbol: value.symbol.trim().toUpperCase(),
+				sector: value.sector.trim(),
+				min_price: optionalNumber(value.min_price),
+				max_price: optionalNumber(value.max_price),
+				// Blank means "list at the allotment price", stored as 0.
+				listing_price: optionalNumber(value.listing_price) ?? 0,
+				lot_size: optionalNumber(value.lot_size),
+				shares_offered: optionalNumber(value.shares_offered),
+				subscription_rate: optionalNumber(value.subscription_rate) ?? 0,
+				open_date: instant(value.open_date),
+				close_date: instant(value.close_date),
+				allotment_date: instant(value.allotment_date),
+			};
+
+			if (ipo) {
+				try {
+					await updateIpo(ipo.id, details);
+				} catch (error) {
+					toast.error(usersErrorMessage(error, "Could not save the IPO."));
+					return;
+				}
+				await queryClient.invalidateQueries({ queryKey: ["admin-ipos"] });
+				toast.success("IPO updated.");
+				onDone();
+				return;
+			}
+
+			let id: number;
+			try {
+				const res = await addIpo({ ...details, status: value.status });
+				id = res.id;
+			} catch (error) {
+				toast.error(usersErrorMessage(error, "Could not create the IPO."));
+				return;
+			}
+
+			// The IPO exists now; a failed logo upload should not lose it.
+			if (logo) {
+				try {
+					await uploadIpoLogo(id, logo);
+				} catch (error) {
+					toast.error(
+						usersErrorMessage(
+							error,
+							"IPO created, but the logo could not be uploaded. Try again from its row.",
+						),
+					);
+				}
+			}
+
+			await queryClient.invalidateQueries({ queryKey: ["admin-ipos"] });
+			toast.success("IPO created.");
+			onDone();
+		},
+	});
+
+	return (
+		<form
+			onSubmit={(e) => {
+				e.preventDefault();
+				form.handleSubmit();
+			}}
+		>
+			<DialogHeader>
+				<DialogTitle>
+					{editing ? `Edit ${ipo.symbol}` : "Create IPO"}
+				</DialogTitle>
+				<DialogDescription>
+					{editing
+						? "Changes reach players straight away. Status is changed from the IPOs table."
+						: "A new company players can apply for shares in. You move it through its life from the IPOs page: release, open, close, allot, then list it as a tradable stock."}
+				</DialogDescription>
+			</DialogHeader>
+
+			<FieldGroup className="my-6">
+				<FieldSet>
+					<FieldLegend>Company</FieldLegend>
+					{ipo ? (
+						<Field>
+							<FieldLabel>Logo</FieldLabel>
+							<IpoLogoEditor
+								ipoId={ipo.id}
+								symbol={ipo.symbol}
+								logoUrl={ipo.logo_url}
+							/>
+							<FieldDescription>
+								Saved as soon as you upload or remove it. Carried over to the
+								stock when it lists.
+							</FieldDescription>
+						</Field>
+					) : (
+						<Field>
+							<FieldLabel>Logo</FieldLabel>
+							<div className="flex items-center gap-3">
+								<form.Subscribe selector={(state) => state.values.symbol}>
+									{(symbol) => (
+										<StockLogo
+											symbol={symbol.trim().toUpperCase() || "?"}
+											logoUrl={logoPreview}
+											size="lg"
+										/>
+									)}
+								</form.Subscribe>
+								<input
+									ref={logoInput}
+									type="file"
+									accept={LOGO_ACCEPTED.join(",")}
+									className="sr-only"
+									tabIndex={-1}
+									onChange={(event) => {
+										const file = event.target.files?.[0];
+										// Cleared so choosing the same file again still fires.
+										event.target.value = "";
+										if (!file) return;
+										const problem = logoFileProblem(file);
+										if (problem) {
+											toast.error(problem);
+											return;
+										}
+										setLogo(file);
+									}}
+								/>
+								<Button
+									type="button"
+									size="sm"
+									variant="outline"
+									onClick={() => logoInput.current?.click()}
+								>
+									<ImageUp data-icon="inline-start" />
+									{logo ? "Change" : "Choose image"}
+								</Button>
+								{logo && (
+									<Button
+										type="button"
+										size="sm"
+										variant="ghost"
+										onClick={() => setLogo(null)}
+									>
+										<X data-icon="inline-start" />
+										Remove
+									</Button>
+								)}
+							</div>
+							<FieldDescription>
+								Optional. Shown on the IPO card and carried over to the stock
+								when it lists. PNG, JPEG or WebP up to 8 MB, resized to a
+								square. Until one is set, players see the symbol's initials.
+							</FieldDescription>
+						</Field>
+					)}
+					<div className="grid gap-4 sm:grid-cols-2">
+						<form.Field name="name">
+							{({ state, handleChange, handleBlur }) => (
+								<Field>
+									<FieldLabel htmlFor="ipo-name">Company name</FieldLabel>
+									<Input
+										id="ipo-name"
+										value={state.value}
+										onChange={(e) => handleChange(e.target.value)}
+										onBlur={handleBlur}
+										placeholder="Tata Consultancy Services"
+									/>
+									<FieldDescription>
+										Shown to players, and becomes the stock's name when it
+										lists.
+									</FieldDescription>
+								</Field>
+							)}
+						</form.Field>
+						<form.Field name="symbol">
+							{({ state, handleChange, handleBlur }) => (
+								<Field>
+									<FieldLabel htmlFor="ipo-symbol">Symbol</FieldLabel>
+									<Input
+										id="ipo-symbol"
+										className="font-mono uppercase"
+										value={state.value}
+										maxLength={10}
+										onChange={(e) => handleChange(e.target.value)}
+										onBlur={handleBlur}
+										placeholder="TCS"
+									/>
+									<FieldDescription>
+										The ticker players trade it under once listed. Up to 10
+										letters or digits, not already used by a stock or another
+										IPO.
+									</FieldDescription>
+								</Field>
+							)}
+						</form.Field>
+					</div>
+					<form.Field name="sector">
+						{({ state, handleChange, handleBlur }) => (
+							<Field>
+								<FieldLabel htmlFor="ipo-sector">Sector</FieldLabel>
+								<SectorCombobox
+									id="ipo-sector"
+									value={state.value}
+									onChange={handleChange}
+									onBlur={handleBlur}
+									sectors={sectors}
+								/>
+								<FieldDescription>
+									Becomes the listed stock's sector. Pick an existing one so it
+									groups with similar stocks, or type a new name and choose "New
+									sector".
+								</FieldDescription>
+							</Field>
+						)}
+					</form.Field>
+				</FieldSet>
+
+				<FieldSet>
+					<FieldLegend>Price</FieldLegend>
+					{termsLocked && (
+						<FieldDescription>
+							Fixed now the IPO has opened: players' applications are based on
+							these.
+						</FieldDescription>
+					)}
+					<div className="grid gap-4 sm:grid-cols-3">
+						<form.Field name="min_price">
+							{({ state, handleChange, handleBlur }) => (
+								<Field>
+									<FieldLabel htmlFor="ipo-min">Lowest bid (₹)</FieldLabel>
+									<Input
+										id="ipo-min"
+										disabled={termsLocked}
+										type="number"
+										inputMode="decimal"
+										step="0.01"
+										min="0"
+										value={state.value}
+										onChange={(e) => handleChange(e.target.value)}
+										onBlur={handleBlur}
+									/>
+									<FieldDescription>
+										Bottom of the price band: the least a player can offer per
+										share.
+									</FieldDescription>
+								</Field>
+							)}
+						</form.Field>
+						<form.Field name="max_price">
+							{({ state, handleChange, handleBlur }) => (
+								<Field>
+									<FieldLabel htmlFor="ipo-max">Highest bid (₹)</FieldLabel>
+									<Input
+										id="ipo-max"
+										disabled={termsLocked}
+										type="number"
+										inputMode="decimal"
+										step="0.01"
+										min="0"
+										value={state.value}
+										onChange={(e) => handleChange(e.target.value)}
+										onBlur={handleBlur}
+									/>
+									<FieldDescription>
+										Top of the band, and the bid players get by default. It is
+										also where the allotment price starts when you run
+										allotment.
+									</FieldDescription>
+								</Field>
+							)}
+						</form.Field>
+						<form.Field name="listing_price">
+							{({ state, handleChange, handleBlur }) => (
+								<Field>
+									<FieldLabel htmlFor="ipo-listing">
+										Listing price (₹)
+									</FieldLabel>
+									<Input
+										id="ipo-listing"
+										type="number"
+										inputMode="decimal"
+										step="0.01"
+										min="0"
+										value={state.value}
+										onChange={(e) => handleChange(e.target.value)}
+										onBlur={handleBlur}
+										placeholder="Same as allotment price"
+									/>
+									<FieldDescription>
+										Optional. The price the stock opens at when you list it.
+										Players pay the allotment price, which you choose when you
+										run allotment after the IPO closes. List above it and they
+										start with a gain; below it, a loss. Leave blank to list at
+										the allotment price.
+									</FieldDescription>
+								</Field>
+							)}
+						</form.Field>
+					</div>
+				</FieldSet>
+
+				<FieldSet>
+					<FieldLegend>Issue size</FieldLegend>
+					{termsLocked && (
+						<FieldDescription>
+							Fixed now the IPO has opened: players' applications are based on
+							lot size and shares offered.
+						</FieldDescription>
+					)}
+					<div className="grid gap-4 sm:grid-cols-3">
+						<form.Field name="lot_size">
+							{({ state, handleChange, handleBlur }) => (
+								<Field>
+									<FieldLabel htmlFor="ipo-lot">Lot size (shares)</FieldLabel>
+									<Input
+										id="ipo-lot"
+										disabled={termsLocked}
+										type="number"
+										inputMode="numeric"
+										step="1"
+										min="1"
+										value={state.value}
+										onChange={(e) => handleChange(e.target.value)}
+										onBlur={handleBlur}
+									/>
+									<FieldDescription>
+										Players apply in whole lots, so this is the smallest order.
+										Their cash for lots × bid is held until allotment.
+									</FieldDescription>
+								</Field>
+							)}
+						</form.Field>
+						<form.Field name="shares_offered">
+							{({ state, handleChange, handleBlur }) => (
+								<Field>
+									<FieldLabel htmlFor="ipo-shares">Shares offered</FieldLabel>
+									<Input
+										id="ipo-shares"
+										disabled={termsLocked}
+										type="number"
+										inputMode="numeric"
+										step="1"
+										min="1"
+										value={state.value}
+										onChange={(e) => handleChange(e.target.value)}
+										onBlur={handleBlur}
+									/>
+									<FieldDescription>
+										Total shares for sale, at least one lot. If players ask for
+										more, each gets a share in proportion to what they asked for
+										and the rest is refunded.
+									</FieldDescription>
+								</Field>
+							)}
+						</form.Field>
+						<form.Field name="subscription_rate">
+							{({ state, handleChange, handleBlur }) => (
+								<Field>
+									<FieldLabel htmlFor="ipo-rate">
+										Starting demand (×)
+									</FieldLabel>
+									<Input
+										id="ipo-rate"
+										type="number"
+										inputMode="decimal"
+										step="0.01"
+										min="0"
+										value={state.value}
+										onChange={(e) => handleChange(e.target.value)}
+										onBlur={handleBlur}
+										placeholder="0"
+									/>
+									<FieldDescription>
+										Optional. The "Subscribed ×" figure players see before
+										anyone applies. After the first application it shows real
+										demand: shares asked for ÷ shares offered.
+									</FieldDescription>
+								</Field>
+							)}
+						</form.Field>
+					</div>
+				</FieldSet>
+
+				<FieldSet>
+					<FieldLegend>Schedule</FieldLegend>
+					<Alert>
+						<CalendarClock />
+						<AlertTitle>These dates are for display only</AlertTitle>
+						<AlertDescription>
+							Players see them as the IPO's timetable, but nothing happens
+							automatically when they arrive. You open, close, allot and list
+							the IPO yourself from the IPOs table; it will remind you when a
+							date has passed.
+						</AlertDescription>
+					</Alert>
+					<div className="grid gap-4 sm:grid-cols-3">
+						<form.Field name="open_date">
+							{({ state, handleChange, handleBlur }) => (
+								<Field>
+									<FieldLabel htmlFor="ipo-open">Opens</FieldLabel>
+									<DateTimePicker
+										id="ipo-open"
+										value={state.value}
+										onChange={handleChange}
+										onBlur={handleBlur}
+									/>
+									<FieldDescription>
+										When applications are due to start.
+									</FieldDescription>
+								</Field>
+							)}
+						</form.Field>
+						<form.Field name="close_date">
+							{({ state, handleChange, handleBlur }) => (
+								<Field>
+									<FieldLabel htmlFor="ipo-close">Closes</FieldLabel>
+									<DateTimePicker
+										id="ipo-close"
+										value={state.value}
+										onChange={handleChange}
+										onBlur={handleBlur}
+									/>
+									<FieldDescription>
+										Last chance to apply or withdraw.
+									</FieldDescription>
+								</Field>
+							)}
+						</form.Field>
+						<form.Field name="allotment_date">
+							{({ state, handleChange, handleBlur }) => (
+								<Field>
+									<FieldLabel htmlFor="ipo-allot">Allotment</FieldLabel>
+									<DateTimePicker
+										id="ipo-allot"
+										value={state.value}
+										onChange={handleChange}
+										onBlur={handleBlur}
+									/>
+									<FieldDescription>
+										When players find out how many shares they got.
+									</FieldDescription>
+								</Field>
+							)}
+						</form.Field>
+					</div>
+				</FieldSet>
+
+				{!editing && (
+					<form.Field name="status">
+						{({ state, handleChange }) => (
+							<Field>
+								<FieldLabel>Start as</FieldLabel>
+								<Select
+									value={state.value}
+									onValueChange={(value) => handleChange(value as IpoStatus)}
+								>
+									<SelectTrigger className="w-full sm:w-64">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{CREATE_STATUSES.map((option) => (
+											<SelectItem key={option.value} value={option.value}>
+												{option.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								<FieldDescription>
+									{
+										CREATE_STATUSES.find(
+											(option) => option.value === state.value,
+										)?.hint
+									}
+								</FieldDescription>
+							</Field>
+						)}
+					</form.Field>
+				)}
+			</FieldGroup>
+
+			<DialogFooter>
+				<Button type="button" variant="outline" onClick={onDone}>
+					Cancel
+				</Button>
+				<form.Subscribe selector={(state) => state.isSubmitting}>
+					{(isSubmitting) => (
+						<Button type="submit" disabled={isSubmitting}>
+							{isSubmitting && <Spinner data-icon="inline-start" />}
+							{isSubmitting
+								? editing
+									? "Saving…"
+									: "Creating…"
+								: editing
+									? "Save changes"
+									: "Create IPO"}
+						</Button>
+					)}
+				</form.Subscribe>
+			</DialogFooter>
+		</form>
+	);
+}
+
 function RouteComponent() {
-	const [isAddOpen, setIsAddOpen] = useState(false);
+	const [formOpen, setFormOpen] = useState(false);
+	const [editing, setEditing] = useState<Ipo | null>(null);
+	const openForm = (ipo: Ipo | null) => {
+		setEditing(ipo);
+		setFormOpen(true);
+	};
 
 	const iposQuery = useQuery({
 		queryKey: ["admin-ipos"],
@@ -409,122 +1130,18 @@ function RouteComponent() {
 		return map;
 	}, [stocksQuery.data]);
 
-	const openIpos = useMemo(() => {
-		return (iposQuery.data ?? []).filter((ipo) => ipo.status === "open");
+	const iposByStatus = useMemo(() => {
+		const groups: Record<Ipo["status"], Ipo[]> = {
+			dormant: [],
+			upcoming: [],
+			open: [],
+			closed: [],
+			listed: [],
+			withdrawn: [],
+		};
+		for (const ipo of iposQuery.data ?? []) groups[ipo.status].push(ipo);
+		return groups;
 	}, [iposQuery.data]);
-
-	const upcomingIpos = useMemo(() => {
-		return (iposQuery.data ?? []).filter((ipo) => ipo.status === "upcoming");
-	}, [iposQuery.data]);
-
-	const dormantIpos = useMemo(() => {
-		return (iposQuery.data ?? []).filter((ipo) => ipo.status === "dormant");
-	}, [iposQuery.data]);
-
-	const listedIpos = useMemo(() => {
-		return (iposQuery.data ?? []).filter((ipo) => ipo.status === "listed");
-	}, [iposQuery.data]);
-
-	const closedIpos = useMemo(() => {
-		return (iposQuery.data ?? []).filter((ipo) => ipo.status === "closed");
-	}, [iposQuery.data]);
-
-	const addIpoFormOptions = formOptions({
-		defaultValues: {
-			name: "",
-			symbol: "",
-			sector: "",
-			min_price: "",
-			max_price: "",
-			subscription_rate: "",
-			open_date: "",
-			close_date: "",
-			allotment_date: "",
-			lot_size: "1",
-			shares_offered: "",
-			listing_price: "",
-			status: "dormant" as IpoStatus,
-		},
-	});
-
-	const queryClient = useQueryClient();
-
-	const addIpoForm = useForm({
-		...addIpoFormOptions,
-		onSubmit: async ({ value }) => {
-			try {
-				if (
-					!value.name.trim() ||
-					!value.symbol.trim() ||
-					!value.sector.trim() ||
-					!value.min_price.trim() ||
-					!value.max_price.trim() ||
-					!value.subscription_rate.trim() ||
-					!value.open_date.trim() ||
-					!value.close_date.trim() ||
-					!value.allotment_date.trim() ||
-					!value.shares_offered.trim() ||
-					!value.listing_price.trim() ||
-					!value.status
-				) {
-					toast.error("Please fill in all required fields.");
-					return;
-				}
-
-				const minPrice = Number.parseFloat(value.min_price);
-				const maxPrice = Number.parseFloat(value.max_price);
-				const subscriptionRate = Number.parseFloat(value.subscription_rate);
-				const lotSize = Number.parseInt(value.lot_size, 10);
-				const sharesOffered = Number.parseInt(value.shares_offered, 10);
-				const listingPrice = Number.parseFloat(value.listing_price);
-				const openDate = new Date(value.open_date);
-				const closeDate = new Date(value.close_date);
-				const allotmentDate = new Date(value.allotment_date);
-
-				if (
-					Number.isNaN(minPrice) ||
-					Number.isNaN(maxPrice) ||
-					Number.isNaN(subscriptionRate) ||
-					Number.isNaN(lotSize) ||
-					Number.isNaN(sharesOffered) ||
-					Number.isNaN(listingPrice) ||
-					Number.isNaN(openDate.getTime()) ||
-					Number.isNaN(closeDate.getTime()) ||
-					Number.isNaN(allotmentDate.getTime())
-				) {
-					toast.error("Please provide valid numeric values and dates.");
-					return;
-				}
-
-				const formData = {
-					name: value.name.trim(),
-					symbol: value.symbol.trim().toUpperCase(),
-					sector: value.sector.trim(),
-					min_price: minPrice,
-					max_price: maxPrice,
-					subscription_rate: subscriptionRate,
-					open_date: openDate.toISOString(),
-					close_date: closeDate.toISOString(),
-					allotment_date: allotmentDate.toISOString(),
-					lot_size: lotSize,
-					shares_offered: sharesOffered,
-					listing_price: listingPrice,
-					status: value.status,
-					is_open_to_subscription: value.status === "open",
-				};
-
-				const res = await addIpo(formData);
-				await queryClient.invalidateQueries({ queryKey: ["admin-ipos"] });
-				toast.success(res.message || "IPO added successfully.");
-				setIsAddOpen(false);
-				addIpoForm.reset();
-			} catch (error) {
-				toast.error(
-					error instanceof Error ? error.message : "Invalid form data.",
-				);
-			}
-		},
-	});
 
 	const sectors = useQuery({
 		queryKey: ["ipo-sectors"],
@@ -546,15 +1163,6 @@ function RouteComponent() {
 			return [];
 		},
 	});
-	const sectorItems = sectors.data ?? [];
-	const iposByStatus: Record<Ipo["status"], Ipo[]> = {
-		dormant: dormantIpos,
-		upcoming: upcomingIpos,
-		open: openIpos,
-		closed: closedIpos,
-		listed: listedIpos,
-		withdrawn: (iposQuery.data ?? []).filter((ipo) => ipo.status === "withdrawn"),
-	};
 
 	if (iposQuery.isLoading) {
 		return <Loading text="Loading IPOs..." />;
@@ -574,306 +1182,17 @@ function RouteComponent() {
 				title="IPOs"
 				description="Draft, announce, open, close and list new stocks."
 				action={
-				<Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-					<DialogTrigger asChild>
-						<Button>
-							<Plus data-icon="inline-start" />
-							Add IPO
-						</Button>
-					</DialogTrigger>
-					<DialogContent className="max-h-[90vh] overflow-y-auto min-w-[60vw]">
-						<form
-							onSubmit={(e) => {
-								e.preventDefault();
-								addIpoForm.handleSubmit();
-							}}
-						>
-							<DialogHeader>
-								<DialogTitle>Create New IPO</DialogTitle>
-								<DialogDescription>
-									Add a new IPO listing with all required details.
-								</DialogDescription>
-							</DialogHeader>
-							<FieldGroup className="my-4">
-								<div className="grid grid-cols-2 gap-4">
-									<addIpoForm.Field name="name">
-										{({ state, handleChange, handleBlur }) => (
-											<Field>
-												<FieldLabel>Company Name *</FieldLabel>
-												<Input
-													value={state.value}
-													onChange={(e) => handleChange(e.target.value)}
-													onBlur={handleBlur}
-													placeholder="e.g., TCS Limited"
-												/>
-												<FieldDescription>
-													Official company/legal name shown across IPO listings.
-												</FieldDescription>
-											</Field>
-										)}
-									</addIpoForm.Field>
-									<addIpoForm.Field name="symbol">
-										{({ state, handleChange, handleBlur }) => (
-											<Field>
-												<FieldLabel>Stock Symbol *</FieldLabel>
-												<Input
-													value={state.value}
-													onChange={(e) => handleChange(e.target.value)}
-													onBlur={handleBlur}
-													placeholder="e.g., TCS"
-												/>
-												<FieldDescription>
-													Exchange ticker symbol (will be stored in uppercase).
-												</FieldDescription>
-											</Field>
-										)}
-									</addIpoForm.Field>
-									<addIpoForm.Field name="sector">
-										{({ state, handleChange, handleBlur }) => (
-											<Field>
-												<FieldLabel>Sector *</FieldLabel>
-												<Combobox
-													onValueChange={(value) => {
-														handleChange(value ?? "");
-													}}
-													onInputValueChange={(value) =>
-														handleChange(value ?? "")
-													}
-													value={state.value || undefined}
-													inputValue={state.value}
-													items={sectorItems}
-													itemToStringValue={(sector) => sector}
-												>
-													<ComboboxInput
-														placeholder="Select a sector"
-														onBlur={handleBlur}
-													/>
-													<ComboboxContent>
-														<ComboboxEmpty>No items found.</ComboboxEmpty>
-														<ComboboxList>
-															{(sector) => (
-																<ComboboxItem key={sector} value={sector}>
-																	{sector}
-																</ComboboxItem>
-															)}
-														</ComboboxList>
-													</ComboboxContent>
-												</Combobox>
-												<FieldDescription>
-													Business sector used for IPO categorization and
-													filtering.
-												</FieldDescription>
-											</Field>
-										)}
-									</addIpoForm.Field>
-									<addIpoForm.Field name="min_price">
-										{({ state, handleChange, handleBlur }) => (
-											<Field>
-												<FieldLabel>Min Price (₹) *</FieldLabel>
-												<Input
-													type="number"
-													step="0.01"
-													value={state.value}
-													onChange={(e) => handleChange(e.target.value)}
-													onBlur={handleBlur}
-												/>
-												<FieldDescription>
-													Lower bound of the IPO application price band.
-												</FieldDescription>
-											</Field>
-										)}
-									</addIpoForm.Field>
-									<addIpoForm.Field name="max_price">
-										{({ state, handleChange, handleBlur }) => (
-											<Field>
-												<FieldLabel>Max Price (₹) *</FieldLabel>
-												<Input
-													type="number"
-													step="0.01"
-													value={state.value}
-													onChange={(e) => handleChange(e.target.value)}
-													onBlur={handleBlur}
-												/>
-												<FieldDescription>
-													Upper bound of the IPO application price band.
-												</FieldDescription>
-											</Field>
-										)}
-									</addIpoForm.Field>
-									<addIpoForm.Field name="listing_price">
-										{({ state, handleChange, handleBlur }) => (
-											<Field>
-												<FieldLabel>Listing Price (₹) *</FieldLabel>
-												<Input
-													type="number"
-													step="0.01"
-													value={state.value}
-													onChange={(e) => handleChange(e.target.value)}
-													onBlur={handleBlur}
-												/>
-												<FieldDescription>
-													Expected or finalized exchange listing price per
-													share.
-												</FieldDescription>
-											</Field>
-										)}
-									</addIpoForm.Field>
-									<addIpoForm.Field name="subscription_rate">
-										{({ state, handleChange, handleBlur }) => (
-											<Field>
-												<FieldLabel>Subscription Rate (x) *</FieldLabel>
-												<Input
-													type="number"
-													step="0.01"
-													value={state.value}
-													onChange={(e) => handleChange(e.target.value)}
-													onBlur={handleBlur}
-												/>
-												<FieldDescription>
-													Demand multiple (for example, 3.5x means 3.5 times
-													subscribed).
-												</FieldDescription>
-											</Field>
-										)}
-									</addIpoForm.Field>
-									<addIpoForm.Field name="lot_size">
-										{({ state, handleChange, handleBlur }) => (
-											<Field>
-												<FieldLabel>Lot Size *</FieldLabel>
-												<Input
-													type="number"
-													value={state.value}
-													onChange={(e) => handleChange(e.target.value)}
-													onBlur={handleBlur}
-												/>
-												<FieldDescription>
-													Minimum number of shares per application lot.
-												</FieldDescription>
-											</Field>
-										)}
-									</addIpoForm.Field>
-									<addIpoForm.Field name="shares_offered">
-										{({ state, handleChange, handleBlur }) => (
-											<Field>
-												<FieldLabel>Shares Offered *</FieldLabel>
-												<Input
-													type="number"
-													value={state.value}
-													onChange={(e) => handleChange(e.target.value)}
-													onBlur={handleBlur}
-												/>
-												<FieldDescription>
-													Total number of shares available in this IPO issue.
-												</FieldDescription>
-											</Field>
-										)}
-									</addIpoForm.Field>
-								</div>
-								<div className="grid grid-cols-3 gap-4">
-									<addIpoForm.Field name="open_date">
-										{({ state, handleChange, handleBlur }) => (
-											<Field>
-												<FieldLabel>Open Date *</FieldLabel>
-												<Input
-													type="datetime-local"
-													value={state.value}
-													onChange={(e) => handleChange(e.target.value)}
-													onBlur={handleBlur}
-												/>
-												<FieldDescription>
-													Date and time when subscriptions begin.
-												</FieldDescription>
-											</Field>
-										)}
-									</addIpoForm.Field>
-									<addIpoForm.Field name="close_date">
-										{({ state, handleChange, handleBlur }) => (
-											<Field>
-												<FieldLabel>Close Date *</FieldLabel>
-												<Input
-													type="datetime-local"
-													value={state.value}
-													onChange={(e) => handleChange(e.target.value)}
-													onBlur={handleBlur}
-												/>
-												<FieldDescription>
-													Date and time when subscriptions stop.
-												</FieldDescription>
-											</Field>
-										)}
-									</addIpoForm.Field>
-									<addIpoForm.Field name="allotment_date">
-										{({ state, handleChange, handleBlur }) => (
-											<Field>
-												<FieldLabel>Allotment Date *</FieldLabel>
-												<Input
-													type="datetime-local"
-													value={state.value}
-													onChange={(e) => handleChange(e.target.value)}
-													onBlur={handleBlur}
-												/>
-												<FieldDescription>
-													Expected date for share allotment results.
-												</FieldDescription>
-											</Field>
-										)}
-									</addIpoForm.Field>
-								</div>
-								<div className="grid grid-cols-1 gap-4">
-									<addIpoForm.Field name="status">
-										{({ state, handleChange }) => (
-											<Field>
-												<FieldLabel>Status *</FieldLabel>
-												<Select
-													value={state.value}
-													onValueChange={(value) =>
-														handleChange(value as IpoStatus)
-													}
-												>
-													<SelectTrigger>
-														<SelectValue placeholder="Select a status" />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="dormant">Dormant</SelectItem>
-														<SelectItem value="upcoming">Upcoming</SelectItem>
-														<SelectItem value="open">Open</SelectItem>
-														<SelectItem value="closed">Closed</SelectItem>
-														<SelectItem value="listed">Listed</SelectItem>
-														<SelectItem value="withdrawn">Withdrawn</SelectItem>
-													</SelectContent>
-												</Select>
-												<FieldDescription>
-													IPO lifecycle status. Dormant IPOs are stored but not
-													visible to users.
-												</FieldDescription>
-											</Field>
-										)}
-									</addIpoForm.Field>
-								</div>
-							</FieldGroup>
-							<DialogFooter>
-								<Button
-									type="button"
-									variant="outline"
-									onClick={() => setIsAddOpen(false)}
-								>
-									Cancel
-								</Button>
-								<addIpoForm.Subscribe
-									selector={(state) => [state.canSubmit, state.isSubmitting]}
-								>
-									{([canSubmit, isSubmitting]) => (
-										<Button type="submit" disabled={!canSubmit || isSubmitting}>
-											{isSubmitting && <Spinner className="h-4 w-4" />}
-											{isSubmitting ? "Creating..." : "Create IPO"}
-										</Button>
-									)}
-								</addIpoForm.Subscribe>
-							</DialogFooter>
-						</form>
-					</DialogContent>
-				</Dialog>
+					<Button onClick={() => openForm(null)}>
+						<Plus data-icon="inline-start" />
+						Add IPO
+					</Button>
 				}
+			/>
+			<IpoFormDialog
+				sectors={sectors.data ?? []}
+				ipo={editing}
+				open={formOpen}
+				onOpenChange={setFormOpen}
 			/>
 
 			<div className="grid grid-cols-2 gap-4 rounded-xl border p-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -907,7 +1226,11 @@ function RouteComponent() {
 							</span>
 						</SectionTitle>
 						{items.length > 0 ? (
-							<IpoTable ipos={items} stockIdBySymbol={stockIdBySymbol} />
+							<IpoTable
+								ipos={items}
+								stockIdBySymbol={stockIdBySymbol}
+								onEdit={openForm}
+							/>
 						) : (
 							<p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
 								{empty}

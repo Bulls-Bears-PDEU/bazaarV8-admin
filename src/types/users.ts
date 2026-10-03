@@ -24,6 +24,8 @@ export type AdminUser = {
 	net_worth: number;
 	pnl: number;
 	online: boolean;
+	// Left out of the ranking by an organiser; still plays as normal.
+	hidden_from_leaderboard: boolean;
 };
 
 export type UserListQuery = {

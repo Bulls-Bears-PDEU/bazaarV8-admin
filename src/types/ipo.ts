@@ -14,6 +14,8 @@ export type Ipo = {
 	open_date: string;
 	allotment_date: string;
 	subscription_rate: number;
+	// The organiser's figure, which subscription_rate falls back to.
+	starting_demand?: number;
 	sector: string;
 	is_open_to_subscription: boolean;
 	lot_size: number;
@@ -22,6 +24,13 @@ export type Ipo = {
 	status: IpoStatus;
 	shares_offered: number;
 	listing_price: number;
+	// Set when allotment runs; the price every allottee pays.
+	allotment_price: number | null;
+	allotment_completed_at: string | null;
+	// The stock created when the IPO lists.
+	listed_stock_id: number | null;
+	// A backend path such as /ipos/logo/4?v=..., or null until one is uploaded.
+	logo_url: string | null;
 	created_at: string;
 	updated_at?: string;
 };
