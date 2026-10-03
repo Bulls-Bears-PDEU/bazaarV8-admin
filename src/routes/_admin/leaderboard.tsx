@@ -10,7 +10,6 @@ import { Skeleton } from "#/components/ui/skeleton";
 import useSocket from "#/hooks/use-socket";
 import { mediaUrl } from "#/lib/media";
 import { cn } from "#/lib/utils";
-import type { LeaderboardEntry } from "#/types/leaderboard";
 
 export const Route = createFileRoute("/_admin/leaderboard")({
 	component: RouteComponent,
@@ -48,12 +47,10 @@ function RouteComponent() {
 	useEffect(() => {
 		if (!socket) return;
 
-		const handleLeaderboardUpdate = (updatedLeaderboard: LeaderboardEntry[]) => {
-			if (Array.isArray(updatedLeaderboard)) {
-				queryClient.setQueryData(["leaderboard"], updatedLeaderboard);
-			} else {
-				queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
-			}
+		// The backend re-ranks every player every ten seconds and only signals
+		// it; the board itself is fetched again.
+		const handleLeaderboardUpdate = () => {
+			queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
 		};
 
 		socket.on("leaderboard_update", handleLeaderboardUpdate);
@@ -69,7 +66,7 @@ function RouteComponent() {
 
 	return (
 		<div className="flex flex-col gap-6">
-			<PageHeader title="Leaderboard" description="The top ten players ranked by net worth, updated live." />
+			<PageHeader title="Leaderboard" description="Every player ranked by net worth, updated every 10 seconds." />
 
 			<div className="grid grid-cols-2 gap-4 rounded-xl border p-4 md:grid-cols-3">
 				<Stat label="Leader" value={leader?.name ?? "—"} />
