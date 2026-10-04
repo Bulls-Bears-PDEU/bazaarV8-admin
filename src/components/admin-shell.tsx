@@ -6,6 +6,7 @@ import {
 	Gauge,
 	Info,
 	LogOut,
+	Megaphone,
 	Newspaper,
 	Rocket,
 	ScrollText,
@@ -61,6 +62,7 @@ type NavItem = {
 		| "/users"
 		| "/ipos"
 		| "/news"
+		| "/ads"
 		| "/leaderboard"
 		| "/actions"
 		| "/about";
@@ -74,6 +76,7 @@ const NAV: NavItem[] = [
 	{ to: "/users", label: "Users", icon: Users },
 	{ to: "/ipos", label: "IPOs", icon: Rocket },
 	{ to: "/news", label: "News", icon: Newspaper },
+	{ to: "/ads", label: "Ads", icon: Megaphone },
 	{ to: "/leaderboard", label: "Leaderboard", icon: Trophy },
 	{ to: "/actions", label: "Action log", icon: ScrollText },
 ];

@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/_admin'
 import { Route as Not_authorizedRouteImport } from './routes/not_authorized'
 import { Route as AdminAboutRouteImport } from './routes/_admin/about'
 import { Route as AdminActionsRouteImport } from './routes/_admin/actions'
+import { Route as AdminAdsRouteImport } from './routes/_admin/ads'
 import { Route as AdminIposRouteImport } from './routes/_admin/ipos'
 import { Route as AdminLeaderboardRouteImport } from './routes/_admin/leaderboard'
 import { Route as AdminMarketRouteImport } from './routes/_admin/market'
@@ -47,6 +48,11 @@ const AdminAboutRoute = AdminAboutRouteImport.update({
 const AdminActionsRoute = AdminActionsRouteImport.update({
   id: '/actions',
   path: '/actions',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAdsRoute = AdminAdsRouteImport.update({
+  id: '/ads',
+  path: '/ads',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminIposRoute = AdminIposRouteImport.update({
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/not_authorized': typeof Not_authorizedRoute
   '/about': typeof AdminAboutRoute
   '/actions': typeof AdminActionsRoute
+  '/ads': typeof AdminAdsRoute
   '/ipos': typeof AdminIposRoute
   '/leaderboard': typeof AdminLeaderboardRoute
   '/market': typeof AdminMarketRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/not_authorized': typeof Not_authorizedRoute
   '/about': typeof AdminAboutRoute
   '/actions': typeof AdminActionsRoute
+  '/ads': typeof AdminAdsRoute
   '/ipos': typeof AdminIposRoute
   '/leaderboard': typeof AdminLeaderboardRoute
   '/market': typeof AdminMarketRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   '/not_authorized': typeof Not_authorizedRoute
   '/_admin/about': typeof AdminAboutRoute
   '/_admin/actions': typeof AdminActionsRoute
+  '/_admin/ads': typeof AdminAdsRoute
   '/_admin/ipos': typeof AdminIposRoute
   '/_admin/leaderboard': typeof AdminLeaderboardRoute
   '/_admin/market': typeof AdminMarketRoute
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
     | '/not_authorized'
     | '/about'
     | '/actions'
+    | '/ads'
     | '/ipos'
     | '/leaderboard'
     | '/market'
@@ -173,6 +183,7 @@ export interface FileRouteTypes {
     | '/not_authorized'
     | '/about'
     | '/actions'
+    | '/ads'
     | '/ipos'
     | '/leaderboard'
     | '/market'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/not_authorized'
     | '/_admin/about'
     | '/_admin/actions'
+    | '/_admin/ads'
     | '/_admin/ipos'
     | '/_admin/leaderboard'
     | '/_admin/market'
@@ -246,6 +258,13 @@ declare module '@tanstack/react-router' {
       path: '/actions'
       fullPath: '/actions'
       preLoaderRoute: typeof AdminActionsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_admin/ads': {
+      id: '/_admin/ads'
+      path: '/ads'
+      fullPath: '/ads'
+      preLoaderRoute: typeof AdminAdsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/_admin/ipos': {
@@ -324,6 +343,7 @@ declare module '@tanstack/react-router' {
 interface AdminRouteChildren {
   AdminAboutRoute: typeof AdminAboutRoute
   AdminActionsRoute: typeof AdminActionsRoute
+  AdminAdsRoute: typeof AdminAdsRoute
   AdminIposRoute: typeof AdminIposRoute
   AdminLeaderboardRoute: typeof AdminLeaderboardRoute
   AdminMarketRoute: typeof AdminMarketRoute
@@ -336,6 +356,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAboutRoute: AdminAboutRoute,
   AdminActionsRoute: AdminActionsRoute,
+  AdminAdsRoute: AdminAdsRoute,
   AdminIposRoute: AdminIposRoute,
   AdminLeaderboardRoute: AdminLeaderboardRoute,
   AdminMarketRoute: AdminMarketRoute,

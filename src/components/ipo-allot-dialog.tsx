@@ -157,7 +157,7 @@ function AllotBody({ ipo, onClose }: { ipo: Ipo; onClose: () => void }) {
 				</Field>
 			</FieldGroup>
 
-			<Alert>
+			<Alert variant="warning">
 				<TriangleAlert />
 				<AlertTitle>Allotment runs once</AlertTitle>
 				<AlertDescription>

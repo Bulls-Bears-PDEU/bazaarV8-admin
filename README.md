@@ -20,6 +20,7 @@ Bazaar is split across three repositories:
 | Action log | `/actions` | Every change an organiser has made to a player's account, and who made it. |
 | IPOs | `/ipos` | Draft, announce, open, close and list new stocks, review applications and run allotment. |
 | News | `/news` | Write headlines, schedule or release them, and choose which stocks each story moves, by how much and over how long. |
+| Ads | `/ads` | Upload a sponsor ad for each ad space in the player app (the news page, news articles and the market-paused screen): drop in an image, set the sponsor name and link, pause or remove it. **Show ads to players** hides every ad and empty ad space at once. |
 | Leaderboard | `/leaderboard` | Every player ranked by net worth, refreshed every 10 seconds. |
 
 Only users with the `admin` role get past sign-in; everyone else is sent to `/not_authorized`. All market and money figures come from the backend; the panel only displays them.
@@ -88,10 +89,10 @@ src/
 │   ├── auth/          Sign in, sign up, reset password
 │   ├── _admin.tsx     Admin layout: session and role guard, sidebar shell
 │   ├── _admin/        market, stocks, stock/$id, users, actions, ipos,
-│   │                  news, leaderboard, about
+│   │                  news, ads, leaderboard, about
 │   ├── not_authorized.tsx
 │   └── index.tsx      Landing page; signed-in admins go to /market
-├── api/               One module per backend area (market, stocks, users, god-mode, …)
+├── api/               One module per backend area (market, stocks, users, god-mode, ads, …)
 ├── components/        Panel components; users/ holds the user sheet and god mode,
 │                      ui/ holds the shadcn primitives
 ├── hooks/             Session, socket and small utilities

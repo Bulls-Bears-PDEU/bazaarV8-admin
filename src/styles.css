@@ -43,6 +43,11 @@
     --gain-muted: oklch(0.585 0.145 156.5 / 12%);
     --loss: oklch(0.577 0.223 27.2);
     --loss-muted: oklch(0.577 0.223 27.2 / 12%);
+    /* Status tones for banners and notices. Success follows gain, so it turns
+       blue with gain in colour-safe mode. */
+    --info: oklch(0.55 0.15 250);
+    --warning: oklch(0.64 0.15 65);
+    --success: var(--gain);
     /* Sector colours: distinct hues that steer clear of gain green and loss red. */
     --sector-1: oklch(0.6 0.17 255);
     --sector-2: oklch(0.75 0.15 75);
@@ -90,6 +95,8 @@
     --gain-muted: oklch(0.735 0.163 156.5 / 18%);
     --loss: oklch(0.704 0.191 22.2);
     --loss-muted: oklch(0.704 0.191 22.2 / 18%);
+    --info: oklch(0.72 0.13 245);
+    --warning: oklch(0.8 0.14 75);
     --sector-1: oklch(0.7 0.15 255);
     --sector-2: oklch(0.82 0.14 80);
     --sector-3: oklch(0.7 0.17 300);
@@ -108,6 +115,9 @@
     --color-gain-muted: var(--gain-muted);
     --color-loss: var(--loss);
     --color-loss-muted: var(--loss-muted);
+    --color-info: var(--info);
+    --color-warning: var(--warning);
+    --color-success: var(--success);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

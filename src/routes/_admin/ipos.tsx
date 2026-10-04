@@ -986,7 +986,7 @@ function IpoForm({
 
 				<FieldSet>
 					<FieldLegend>Schedule</FieldLegend>
-					<Alert>
+					<Alert variant="info">
 						<CalendarClock />
 						<AlertTitle>These dates are for display only</AlertTitle>
 						<AlertDescription>
