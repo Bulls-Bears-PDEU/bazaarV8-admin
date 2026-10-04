@@ -27,6 +27,19 @@ Only users with the `admin` role get past sign-in; everyone else is sent to `/no
 
 For how news impacts and sentiment move prices, see [stockEngine.md](https://github.com/Bulls-Bears-PDEU/bazaarV8-backend/blob/main/docs/stockEngine.md) in the backend repo.
 
+## Screenshots
+
+The screenshots below were captured on desktop at 1467×812 and are stored in [docs/screenshots/](docs/screenshots/).
+
+| | |
+| --- | --- |
+| **Sign in** — `/auth/signin`<br>[![Sign in](docs/screenshots/01-sign-in.png)](docs/screenshots/01-sign-in.png) | **Market controls** — `/market`<br>[![Market](docs/screenshots/02-market.jpg)](docs/screenshots/02-market.jpg) |
+| **Stocks** — `/stocks`<br>[![Stocks](docs/screenshots/03-stocks.jpg)](docs/screenshots/03-stocks.jpg) | **Stock detail** — `/stock/$id`<br>[![Stock detail](docs/screenshots/04-stock-detail.jpg)](docs/screenshots/04-stock-detail.jpg) |
+| **IPOs** — `/ipos`<br>[![IPOs](docs/screenshots/05-ipos.jpg)](docs/screenshots/05-ipos.jpg) | **News** — `/news`<br>[![News](docs/screenshots/06-news.jpg)](docs/screenshots/06-news.jpg) |
+| **Ads** — `/ads`<br>[![Ads](docs/screenshots/07-ads.jpg)](docs/screenshots/07-ads.jpg) | **Users** — `/users`<br>[![Users](docs/screenshots/08-users.jpg)](docs/screenshots/08-users.jpg) |
+| **Action log** — `/actions`<br>[![Action log](docs/screenshots/09-actions.jpg)](docs/screenshots/09-actions.jpg) | **Leaderboard** — `/leaderboard`<br>[![Leaderboard](docs/screenshots/10-leaderboard.jpg)](docs/screenshots/10-leaderboard.jpg) |
+| **About** — `/about`<br>[![About](docs/screenshots/11-about.jpg)](docs/screenshots/11-about.jpg) |  |
+
 ## Tech stack
 
 - [React 19](https://react.dev) and [Vite](https://vite.dev)

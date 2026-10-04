@@ -9,6 +9,7 @@ import {
 	type IChartApi,
 	type ISeriesApi,
 	LineSeries,
+	LineStyle,
 	type MouseEventParams,
 	type SeriesType,
 	type UTCTimestamp,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { getStockOhlc } from "#/api/stocks";
+import { CandleLegend } from "#/components/charts/candle-legend";
 import {
 	ChartFrame,
 	ChartToggle,
@@ -29,10 +31,13 @@ import {
 import { ChartSkeleton } from "#/components/charts/chart-skeleton";
 import useSocket from "#/hooks/use-socket";
 import {
-	inrPriceFormatter,
+	chartPriceFormatter,
+	chartTickFormatter,
+	chartTimeFormatter,
 	toChartTime,
 	useChartColors,
 } from "#/lib/chart-colors";
+import { formatINR, formatPct, trendText } from "#/lib/format";
 import type { StockOHLC } from "#/types/stock";
 
 type Bar = {
@@ -41,6 +46,8 @@ type Bar = {
 	high: number;
 	low: number;
 	close: number;
+	// The close measured from the starting price, from the backend.
+	change_pct: number | null;
 };
 
 const CHART_TYPES = ["candles", "bars", "line", "area"] as const;
@@ -68,9 +75,6 @@ const toSeriesData = (bars: Bar[], type: ChartType) =>
 	isOhlc(type)
 		? bars
 		: bars.map((bar) => ({ time: bar.time, value: bar.close }));
-
-const formatTime = (seconds: number) =>
-	new Date(seconds * 1000).toLocaleTimeString("en-IN", { hour12: false });
 
 /**
  * One stock's price, styled like the player app's chart: history from the API,
@@ -106,15 +110,21 @@ const TVChart = ({ stockId, symbol }: { stockId: string; symbol: string }) => {
 		if (!containerRef.current) return;
 		const chart = createChart(containerRef.current, {
 			autoSize: true,
-			crosshair: { mode: CrosshairMode.Magnet },
-			localization: { priceFormatter: inrPriceFormatter },
+			localization: {
+				priceFormatter: chartPriceFormatter,
+				timeFormatter: chartTimeFormatter,
+			},
 			timeScale: {
 				timeVisible: true,
 				secondsVisible: true,
+				tickMarkFormatter: chartTickFormatter,
 				borderVisible: false,
 				rightOffset: 4,
 			},
-			rightPriceScale: { borderVisible: false },
+			rightPriceScale: {
+				borderVisible: false,
+				scaleMargins: { top: 0.12, bottom: 0.08 },
+			},
 			// Over the chart the wheel zooms and a sideways swipe scrolls; drag to pan.
 			handleScroll: {
 				mouseWheel: true,
@@ -175,11 +185,15 @@ const TVChart = ({ stockId, symbol }: { stockId: string; symbol: string }) => {
 				// TradingView's logo and link, which its licence asks for.
 				attributionLogo: true,
 			},
+			// Price levels only: time is read off the axis and the crosshair.
 			grid: {
-				vertLines: { color: colors.grid },
-				horzLines: { color: colors.grid },
+				vertLines: { visible: false },
+				horzLines: { color: colors.grid, style: LineStyle.Dotted },
 			},
 			crosshair: {
+				// Candles snap to whichever of open, high, low or close is nearest,
+				// so the highs and lows can be read off the axis too.
+				mode: isOhlc(type) ? CrosshairMode.MagnetOHLC : CrosshairMode.Magnet,
 				vertLine: {
 					color: colors.crosshair,
 					labelBackgroundColor: colors.accent,
@@ -237,6 +251,7 @@ const TVChart = ({ stockId, symbol }: { stockId: string; symbol: string }) => {
 				high: Number(candle.high_price),
 				low: Number(candle.low_price),
 				close: Number(candle.close_price),
+				change_pct: candle.change_pct ?? null,
 			});
 		}
 		barsRef.current = [...byTime.values()].sort((a, b) => a.time - b.time);
@@ -266,6 +281,7 @@ const TVChart = ({ stockId, symbol }: { stockId: string; symbol: string }) => {
 				high: Number(data.high_price),
 				low: Number(data.low_price),
 				close: Number(data.close_price),
+				change_pct: data.change_pct ?? null,
 			};
 			if (last && last.time === time) bars[bars.length - 1] = bar;
 			else bars.push(bar);
@@ -321,45 +337,29 @@ const TVChart = ({ stockId, symbol }: { stockId: string; symbol: string }) => {
 					</>
 				}
 				legend={
-					<div
-						className="flex min-h-5 flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs tabular-nums"
-						aria-live="off"
-					>
-						{shown ? (
-							<>
-								<span className="text-muted-foreground">
-									{formatTime(shown.time)}
-								</span>
-								{(["open", "high", "low", "close"] as const).map((key) => (
-									<span key={key}>
-										<span className="text-muted-foreground">
-											{key[0].toUpperCase()}
-										</span>{" "}
-										{inrPriceFormatter(shown[key])}
-									</span>
-								))}
-							</>
-						) : (
-							<span className="text-muted-foreground">
-								Point at the chart to read a candle.
-							</span>
-						)}
-					</div>
+					<CandleLegend
+						candle={shown}
+						hovering={hovered !== null}
+						ohlc={isOhlc(type)}
+					/>
 				}
 				table={() => ({
 					caption: `${symbol} candles, newest first`,
-					columns: ["Time", "Open", "High", "Low", "Close"],
+					columns: ["Time", "Open", "High", "Low", "Close", "Since start"],
 					rows: bars
 						.slice(-100)
 						.reverse()
 						.map((bar) => ({
 							key: bar.time,
 							cells: [
-								formatTime(bar.time),
-								inrPriceFormatter(bar.open),
-								inrPriceFormatter(bar.high),
-								inrPriceFormatter(bar.low),
-								inrPriceFormatter(bar.close),
+								chartTimeFormatter(bar.time),
+								formatINR(bar.open),
+								formatINR(bar.high),
+								formatINR(bar.low),
+								formatINR(bar.close),
+								<span key="pct" className={trendText(bar.change_pct)}>
+									{formatPct(bar.change_pct)}
+								</span>,
 							],
 						})),
 				})}

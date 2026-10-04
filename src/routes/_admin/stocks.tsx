@@ -18,6 +18,7 @@ import {
 	Trash2,
 } from "lucide-react";
 import { memo, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import {
 	addStock,
@@ -644,7 +645,10 @@ function RouteComponent() {
 					</FieldDescription>
 				</div>
 			)}
-			{table.getFilteredSelectedRowModel().rows.length > 0 && (
+			{table.getFilteredSelectedRowModel().rows.length > 0 &&
+				// Into <body>: the page's animated wrapper keeps a transform, which
+				// would pin a fixed bar to the page instead of the screen.
+				createPortal(
 				// Clear of the tab bar on phones and centred on the page beside the rail.
 				<div className="fixed bottom-20 left-1/2 z-20 flex -translate-x-1/2 items-center gap-4 rounded-xl border bg-background/90 p-2 pl-4 text-sm shadow-lg backdrop-blur md:bottom-4 md:left-[calc(50%+6.5rem)]">
 					{table.getFilteredSelectedRowModel().rows.length} of{" "}
@@ -664,7 +668,8 @@ function RouteComponent() {
 							<Button variant="outline">View Details</Button>
 						</ButtonGroup>
 					</ButtonGroup>
-				</div>
+				</div>,
+				document.body,
 			)}
 		</div>
 	);

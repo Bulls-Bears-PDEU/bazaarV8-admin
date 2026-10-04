@@ -1,3 +1,4 @@
+import { TickMarkType, type Time } from "lightweight-charts";
 import { useEffect, useState } from "react";
 
 /**
@@ -84,12 +85,52 @@ export const useChartColors = () => {
 	return colors;
 };
 
-export const inrPriceFormatter = new Intl.NumberFormat("en-IN", {
-	style: "currency",
-	currency: "INR",
+/**
+ * Prices on a chart's own axis and labels: rupees to the paisa, without a ₹ on
+ * every one. The legend above the chart carries the currency.
+ */
+export const chartPriceFormatter = new Intl.NumberFormat("en-IN", {
 	minimumFractionDigits: 2,
 	maximumFractionDigits: 2,
 }).format;
+
+// The charting library only knows UTC: left to itself, its time axis reads
+// 5½ hours behind an Indian reader's clock and disagrees with every other time
+// on the page. These label each time in the reader's own zone instead, on the
+// 24-hour clock so a session's ticks read in order.
+const chartDate = (time: Time | number) =>
+	typeof time === "number"
+		? new Date(time * 1000)
+		: typeof time === "string"
+			? new Date(time)
+			: new Date(time.year, time.month - 1, time.day);
+
+const dateFormat = (options: Intl.DateTimeFormatOptions) =>
+	new Intl.DateTimeFormat("en-IN", options).format;
+const clock = { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } as const;
+const tickFormats: Record<TickMarkType, (date: Date) => string> = {
+	[TickMarkType.Year]: dateFormat({ year: "numeric" }),
+	[TickMarkType.Month]: dateFormat({ month: "short" }),
+	[TickMarkType.DayOfMonth]: dateFormat({ day: "numeric", month: "short" }),
+	[TickMarkType.Time]: dateFormat(clock),
+	// The library fills gaps between minutes with ticks at odd seconds
+	// (21:53:20), which read as noise; the crosshair gives the exact second.
+	[TickMarkType.TimeWithSeconds]: () => "",
+};
+const fullTime = dateFormat({
+	...clock,
+	second: "2-digit",
+	day: "numeric",
+	month: "short",
+});
+
+/** A time-axis tick: a minute reads 14:30, a day 4 Oct, a month Oct. */
+export const chartTickFormatter = (time: Time, type: TickMarkType) =>
+	tickFormats[type](chartDate(time));
+
+/** One moment in full, for the crosshair's label and the legend: 4 Oct, 14:30:10. */
+export const chartTimeFormatter = (time: Time | number) =>
+	fullTime(chartDate(time));
 
 /** Seconds since epoch, as the chart wants; null for unusable values. */
 export const toChartTime = (value: string | Date) => {

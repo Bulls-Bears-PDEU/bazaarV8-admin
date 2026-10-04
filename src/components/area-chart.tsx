@@ -13,7 +13,12 @@ import {
 import { ChartArea, ChartLine, ChartSpline } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ChartFrame, ChartToggle, useStoredChoice } from "#/components/charts/chart-frame";
-import { toChartTime, useChartColors } from "#/lib/chart-colors";
+import {
+	chartTickFormatter,
+	chartTimeFormatter,
+	toChartTime,
+	useChartColors,
+} from "#/lib/chart-colors";
 import { formatPct, formatTime, trendText } from "#/lib/format";
 import { cn } from "#/lib/utils";
 
@@ -68,8 +73,16 @@ export function AreaChart({
 		if (!containerRef.current) return;
 		const chart = createChart(containerRef.current, {
 			autoSize: true,
-			localization: { priceFormatter: (v: number) => formatRef.current(v) },
-			timeScale: { timeVisible: true, borderVisible: false, rightOffset: 2 },
+			localization: {
+				priceFormatter: (v: number) => formatRef.current(v),
+				timeFormatter: chartTimeFormatter,
+			},
+			timeScale: {
+				timeVisible: true,
+				borderVisible: false,
+				rightOffset: 2,
+				tickMarkFormatter: chartTickFormatter,
+			},
 			rightPriceScale: { borderVisible: false },
 			handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
 			handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true },

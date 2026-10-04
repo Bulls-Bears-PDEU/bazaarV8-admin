@@ -8,7 +8,11 @@ import {
 	type UTCTimestamp,
 } from "lightweight-charts";
 import { useEffect, useRef } from "react";
-import { useChartColors } from "#/lib/chart-colors";
+import {
+	chartTickFormatter,
+	chartTimeFormatter,
+	useChartColors,
+} from "#/lib/chart-colors";
 import type { IndexHistory } from "#/types/market";
 
 /**
@@ -65,10 +69,12 @@ export function IndexChart({
 				borderVisible: false,
 				scaleMargins: { top: 0.15, bottom: 0.05 },
 			},
+			localization: { timeFormatter: chartTimeFormatter },
 			timeScale: {
 				borderVisible: false,
 				timeVisible: true,
 				secondsVisible: true,
+				tickMarkFormatter: chartTickFormatter,
 			},
 			crosshair: {
 				mode: CrosshairMode.Magnet,

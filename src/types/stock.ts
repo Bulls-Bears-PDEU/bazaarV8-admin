@@ -22,6 +22,9 @@ export type StockOHLC = {
 	low_price: number;
 	close_price: number;
 	timestamp: string;
+	// The close measured from the starting price. The backend adds it to the
+	// candles it sends; it is never sent back.
+	change_pct?: number | null;
 };
 
 export type StockPrice = {
