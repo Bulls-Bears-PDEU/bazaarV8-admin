@@ -29,6 +29,7 @@ import { Label } from "#/components/ui/label";
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
@@ -373,11 +374,13 @@ function PositionControls({
 						<SelectValue placeholder="Pick a stock" />
 					</SelectTrigger>
 					<SelectContent>
-						{stocks.map((stock) => (
-							<SelectItem key={stock.id} value={String(stock.id)}>
-								<span className="font-mono">{stock.symbol}</span> — {stock.name}
-							</SelectItem>
-						))}
+						<SelectGroup>
+							{stocks.map((stock) => (
+								<SelectItem key={stock.id} value={String(stock.id)}>
+									<span className="font-mono">{stock.symbol}</span> — {stock.name}
+								</SelectItem>
+							))}
+						</SelectGroup>
 					</SelectContent>
 				</Select>
 				<div className="flex gap-2">

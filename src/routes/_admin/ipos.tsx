@@ -64,6 +64,7 @@ import { Loading } from "#/components/ui/loading";
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
@@ -986,7 +987,7 @@ function IpoForm({
 
 				<FieldSet>
 					<FieldLegend>Schedule</FieldLegend>
-					<Alert variant="info">
+					<Alert>
 						<CalendarClock />
 						<AlertTitle>These dates are for display only</AlertTitle>
 						<AlertDescription>
@@ -1061,11 +1062,13 @@ function IpoForm({
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										{CREATE_STATUSES.map((option) => (
-											<SelectItem key={option.value} value={option.value}>
-												{option.label}
-											</SelectItem>
-										))}
+										<SelectGroup>
+											{CREATE_STATUSES.map((option) => (
+												<SelectItem key={option.value} value={option.value}>
+													{option.label}
+												</SelectItem>
+											))}
+										</SelectGroup>
 									</SelectContent>
 								</Select>
 								<FieldDescription>

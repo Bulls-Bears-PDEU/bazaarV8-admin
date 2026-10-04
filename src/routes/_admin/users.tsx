@@ -26,7 +26,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select";
 import { Input } from "#/components/ui/input";
 import { Skeleton } from "#/components/ui/skeleton";
 import { Spinner } from "#/components/ui/spinner";
@@ -226,11 +226,13 @@ function UsersPage() {
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
-						{ROLES.map((option) => (
-							<SelectItem key={option} value={option}>
-								{ROLE_LABELS[option]}
-							</SelectItem>
-						))}
+						<SelectGroup>
+							{ROLES.map((option) => (
+								<SelectItem key={option} value={option}>
+									{ROLE_LABELS[option]}
+								</SelectItem>
+							))}
+						</SelectGroup>
 					</SelectContent>
 				</Select>
 
@@ -241,11 +243,13 @@ function UsersPage() {
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
-							{SORTS.map((option) => (
-								<SelectItem key={option} value={option}>
-									{SORT_LABELS[option]}
-								</SelectItem>
-							))}
+							<SelectGroup>
+								{SORTS.map((option) => (
+									<SelectItem key={option} value={option}>
+										{SORT_LABELS[option]}
+									</SelectItem>
+								))}
+							</SelectGroup>
 						</SelectContent>
 					</Select>
 					<Button
@@ -375,11 +379,13 @@ function UsersPage() {
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
-								{PAGE_SIZES.map((size) => (
-									<SelectItem key={size} value={String(size)}>
-										{size}
-									</SelectItem>
-								))}
+								<SelectGroup>
+									{PAGE_SIZES.map((size) => (
+										<SelectItem key={size} value={String(size)}>
+											{size}
+										</SelectItem>
+									))}
+								</SelectGroup>
 							</SelectContent>
 						</Select>
 						<span className="px-2 text-muted-foreground tabular-nums">

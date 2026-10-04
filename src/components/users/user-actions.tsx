@@ -12,7 +12,7 @@ import {
 	DialogTitle,
 } from "#/components/ui/dialog";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "#/components/ui/field";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select";
 import { Spinner } from "#/components/ui/spinner";
 import { Textarea } from "#/components/ui/textarea";
 import { plural } from "#/lib/format";
@@ -130,11 +130,13 @@ export function useUserActions({ onDone }: { onDone?: (action: BulkAction, ids: 
 										<SelectValue />
 									</SelectTrigger>
 									<SelectContent>
-										{BAN_LENGTHS.map((option) => (
-											<SelectItem key={option.value} value={option.value}>
-												{option.label}
-											</SelectItem>
-										))}
+										<SelectGroup>
+											{BAN_LENGTHS.map((option) => (
+												<SelectItem key={option.value} value={option.value}>
+													{option.label}
+												</SelectItem>
+											))}
+										</SelectGroup>
 									</SelectContent>
 								</Select>
 							</Field>

@@ -46,7 +46,6 @@ import {
 	FieldLabel,
 } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
-import { Label } from "#/components/ui/label";
 import { Skeleton } from "#/components/ui/skeleton";
 import { Spinner } from "#/components/ui/spinner";
 import { Switch } from "#/components/ui/switch";
@@ -100,20 +99,20 @@ function RouteComponent() {
 				title="Ads"
 				description="Upload sponsor ads for the spaces in the player app. Players see changes straight away."
 				action={
-					<div className="flex items-center gap-2 rounded-lg border px-3 py-2">
+					<Field orientation="horizontal">
 						<Switch
 							id="ads-enabled"
 							checked={enabled}
 							disabled={!ads.data || toggle.isPending}
 							onCheckedChange={(checked) => toggle.mutate(checked)}
 						/>
-						<Label htmlFor="ads-enabled">Show ads to players</Label>
-					</div>
+						<FieldLabel htmlFor="ads-enabled">Show ads to players</FieldLabel>
+					</Field>
 				}
 			/>
 
 			{ads.data && !enabled && (
-				<Alert variant="warning">
+				<Alert>
 					<EyeOff />
 					<AlertTitle>All ads are hidden from players</AlertTitle>
 					<AlertDescription>
@@ -140,7 +139,7 @@ function RouteComponent() {
 				<div className="grid gap-4 lg:grid-cols-2">
 					{Array.from({ length: 4 }, (_, index) => (
 						// biome-ignore lint/suspicious/noArrayIndexKey: static placeholders
-						<Skeleton key={index} className="h-96 rounded-xl" />
+						<Skeleton key={index} className="h-96" />
 					))}
 				</div>
 			) : (
@@ -384,8 +383,8 @@ function AdSlotCard({ slot, hidden }: { slot: AdSlot; hidden: boolean }) {
 				</Button>
 				{ad && (
 					<Button
-						variant="ghost"
-						className="ml-auto text-destructive"
+						variant="destructive"
+						className="ml-auto"
 						disabled={busy}
 						onClick={() => setConfirmRemove(true)}
 					>

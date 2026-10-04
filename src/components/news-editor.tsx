@@ -8,7 +8,7 @@ import { Button } from "#/components/ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "#/components/ui/input-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "#/components/ui/sheet";
 import { Spinner } from "#/components/ui/spinner";
 import { Textarea } from "#/components/ui/textarea";
@@ -442,11 +442,13 @@ function ImpactSection({
 						<SelectValue />
 					</SelectTrigger>
 					<SelectContent>
-						{durationOptions(form.defaultDuration).map((seconds) => (
-							<SelectItem key={seconds} value={String(seconds)}>
-								{durationLabel(seconds)}
-							</SelectItem>
-						))}
+						<SelectGroup>
+							{durationOptions(form.defaultDuration).map((seconds) => (
+								<SelectItem key={seconds} value={String(seconds)}>
+									{durationLabel(seconds)}
+								</SelectItem>
+							))}
+						</SelectGroup>
 					</SelectContent>
 				</Select>
 				<span className="text-xs text-muted-foreground">Used by every stock set to “Default”.</span>
@@ -592,12 +594,14 @@ function DurationSelect({
 				<SelectValue placeholder="Duration" />
 			</SelectTrigger>
 			<SelectContent>
-				{allowDefault && <SelectItem value={DEFAULT}>Default ({durationLabel(defaultDuration)})</SelectItem>}
-				{durationOptions(value === DEFAULT || value === "" ? null : Number(value)).map((seconds) => (
-					<SelectItem key={seconds} value={String(seconds)}>
-						{durationLabel(seconds)}
-					</SelectItem>
-				))}
+				<SelectGroup>
+					{allowDefault && <SelectItem value={DEFAULT}>Default ({durationLabel(defaultDuration)})</SelectItem>}
+					{durationOptions(value === DEFAULT || value === "" ? null : Number(value)).map((seconds) => (
+						<SelectItem key={seconds} value={String(seconds)}>
+							{durationLabel(seconds)}
+						</SelectItem>
+					))}
+				</SelectGroup>
 			</SelectContent>
 		</Select>
 	);
@@ -785,11 +789,13 @@ function StockPicker({
 						<SelectValue placeholder="Add a sector" />
 					</SelectTrigger>
 					<SelectContent>
-						{sectors.map(([sector, count]) => (
-							<SelectItem key={sector} value={sector}>
-								{sector} ({count})
-							</SelectItem>
-						))}
+						<SelectGroup>
+							{sectors.map(([sector, count]) => (
+								<SelectItem key={sector} value={sector}>
+									{sector} ({count})
+								</SelectItem>
+							))}
+						</SelectGroup>
 					</SelectContent>
 				</Select>
 			</div>
