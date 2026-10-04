@@ -265,7 +265,7 @@ function RouteComponent() {
 			/>
 
 			<Dialog open={confirmDelete !== null} onOpenChange={(open) => !open && setConfirmDelete(null)}>
-				<DialogContent>
+				<DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto">
 					<DialogHeader>
 						<DialogTitle>Delete this story?</DialogTitle>
 						<DialogDescription>

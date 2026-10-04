@@ -50,7 +50,7 @@ export function ConfirmDangerous({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-md">
 				<DialogHeader>
 					<DialogTitle>{title}</DialogTitle>
 					<DialogDescription>{description}</DialogDescription>

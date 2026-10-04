@@ -25,21 +25,12 @@ const ACCEPTED = ["image/png", "image/jpeg", "image/webp"];
 const MAX_BYTES = 8 * 1024 * 1024;
 
 /**
- * A stock's logo that is also its upload and remove control. The file goes to the
- * backend as it is: the server does the resizing, so the admin panel cannot be
- * the thing that decides how large a stored logo gets.
+ * Uploads and removes a stock's logo, saved straight away. The file goes to
+ * the backend as it is: the server does the resizing, so the admin panel
+ * cannot be the thing that decides how large a stored logo gets.
  */
-export function StockLogoEditor({
-	stockId,
-	symbol,
-	logoUrl,
-}: {
-	stockId: number;
-	symbol: string;
-	logoUrl: string | null | undefined;
-}) {
+function useStockLogo(stockId: number) {
 	const queryClient = useQueryClient();
-	const input = useRef<HTMLInputElement>(null);
 
 	const refresh = () => {
 		// The stock list feeds every StockLogo; the detail query feeds this page.
@@ -73,7 +64,21 @@ export function StockLogoEditor({
 			toast.error(usersErrorMessage(error, "Could not remove the logo.")),
 	});
 
-	const busy = upload.isPending || remove.isPending;
+	return { upload, remove, busy: upload.isPending || remove.isPending };
+}
+
+/** A stock's logo that is also its upload and remove control. */
+export function StockLogoEditor({
+	stockId,
+	symbol,
+	logoUrl,
+}: {
+	stockId: number;
+	symbol: string;
+	logoUrl: string | null | undefined;
+}) {
+	const input = useRef<HTMLInputElement>(null);
+	const { upload, remove, busy } = useStockLogo(stockId);
 	const [dragging, setDragging] = useState(false);
 
 	const take = (file: File | undefined) => {

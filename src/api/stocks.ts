@@ -78,7 +78,8 @@ export const addStock = async (
 	initPrice: number,
 ) => {
 	const res = await axios.post("/stocks/addStock", { stockData, initPrice });
-	return res.data as Stock;
+	// The new stock's id, so its logo can be uploaded next.
+	return res.data as { message: string; id: number };
 };
 
 /**

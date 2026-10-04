@@ -180,7 +180,7 @@ export function AccessibilityMenu() {
 			</Popover>
 
 			<Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
-				<DialogContent className="sm:max-w-md">
+				<DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-md">
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2">
 							<Keyboard className="size-5 text-primary" />

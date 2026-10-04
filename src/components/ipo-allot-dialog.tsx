@@ -46,7 +46,7 @@ export function IpoAllotDialog({
 }) {
 	return (
 		<Dialog open={ipo !== null} onOpenChange={(open) => !open && onClose()}>
-			<DialogContent className="sm:max-w-lg">
+			<DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-lg">
 				{ipo && <AllotBody key={ipo.id} ipo={ipo} onClose={onClose} />}
 			</DialogContent>
 		</Dialog>

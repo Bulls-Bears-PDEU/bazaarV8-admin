@@ -308,7 +308,7 @@ function RouteComponent() {
 			/>
 
 			<Dialog open={confirmPause} onOpenChange={setConfirmPause}>
-				<DialogContent className="sm:max-w-md">
+				<DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-md">
 					<DialogHeader>
 						<DialogTitle>Pause the market?</DialogTitle>
 						<DialogDescription>

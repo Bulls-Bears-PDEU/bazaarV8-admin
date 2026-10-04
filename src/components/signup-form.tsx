@@ -173,7 +173,7 @@ export function SignupForm({ className }: { className?: string }) {
 			</form>
 
 			<Dialog open={showOTPDialog} onOpenChange={setShowOTPDialog}>
-				<DialogContent className="sm:max-w-sm">
+				<DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-sm">
 					<DialogHeader>
 						<DialogTitle>Verify your email</DialogTitle>
 						<DialogDescription>

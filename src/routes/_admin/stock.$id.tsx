@@ -8,10 +8,15 @@ import {
 	addStockOhlc,
 	getAllSectors,
 	getStock,
+	removeStockLogo,
 	updateStock,
+	uploadStockLogo,
 } from "#/api/stocks";
+import { usersErrorMessage } from "#/api/users";
 import StockCurrentPrice from "#/components/current-price";
+import { type LogoChange, LogoChangePicker } from "#/components/logo-picker";
 import { PageHeader } from "#/components/page-header";
+import { SectorCombobox } from "#/components/sector-combobox";
 import { SectionTitle, Stat } from "#/components/stat";
 import { StockLogoEditor } from "#/components/stock-logo-editor";
 import StockOhlcTable from "#/components/stock-ohlc-table";
@@ -38,16 +43,9 @@ import {
 } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import { Loading } from "#/components/ui/loading";
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "#/components/ui/select";
 import { Spinner } from "#/components/ui/spinner";
 import { Switch } from "#/components/ui/switch";
+import { STOCK_FIELD_HELP } from "#/lib/stock-field-help";
 import type { StockOHLC } from "#/types/stock";
 
 export const Route = createFileRoute("/_admin/stock/$id")({
@@ -96,6 +94,12 @@ function RouteComponent() {
 	});
 
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+	// Held until Save changes, like the other fields; each opening starts clean.
+	const [logoChange, setLogoChange] = useState<LogoChange>(undefined);
+	const openEditDialog = (open: boolean) => {
+		setIsEditDialogOpen(open);
+		if (open) setLogoChange(undefined);
+	};
 	const allSectors = useQuery({
 		queryKey: ["sectors"],
 		queryFn: async () => {
@@ -126,13 +130,37 @@ function RouteComponent() {
 				console.log("Updating stock with data:", updatedData);
 				const result = await updateStock(Number(id), updatedData);
 				console.info("Result from API:", result);
-				queryClient.invalidateQueries({ queryKey: ["stock", id] });
-				toast.success("Stock details updated successfully!");
-				setIsEditDialogOpen(false);
 			} catch (error) {
 				console.error("Error updating stock details:", error);
 				toast.error("Failed to update stock details. Please try again.");
+				return;
 			}
+
+			// The details are saved; a failed logo change keeps the dialog open
+			// with the change still in it, so saving again retries it.
+			let logoSaved = true;
+			try {
+				if (logoChange) await uploadStockLogo(Number(id), logoChange);
+				else if (logoChange === null) await removeStockLogo(Number(id));
+			} catch (error) {
+				logoSaved = false;
+				toast.error(
+					usersErrorMessage(
+						error,
+						"Details saved, but the logo could not be changed.",
+					),
+				);
+			}
+
+			queryClient.invalidateQueries({ queryKey: ["stock", id] });
+			// The stock list feeds every StockLogo.
+			if (logoChange !== undefined)
+				queryClient.invalidateQueries({ queryKey: ["stocks"] });
+			// A new sector shows up in every sector list.
+			queryClient.invalidateQueries({ queryKey: ["sectors"] });
+			if (!logoSaved) return;
+			toast.success("Stock details updated successfully!");
+			setIsEditDialogOpen(false);
 		},
 	});
 
@@ -161,7 +189,7 @@ function RouteComponent() {
 					)
 				}
 				action={
-					<Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
+					<Button variant="outline" onClick={() => openEditDialog(true)}>
 						<Pen data-icon="inline-start" />
 						Edit details
 					</Button>
@@ -232,9 +260,8 @@ function RouteComponent() {
 				</SectionTitle>
 				<StockOhlcTable stockId={stock.data ? String(stock.data.id) : ""} />
 			</section>
-			<Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-				{/* Implement the dialog for editing stock details here */}
-				<DialogContent>
+			<Dialog open={isEditDialogOpen} onOpenChange={openEditDialog}>
+				<DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-xl">
 					<form
 						onSubmit={(e) => {
 							e.preventDefault();
@@ -242,74 +269,103 @@ function RouteComponent() {
 						}}
 					>
 						<DialogHeader>
-							<DialogTitle>Edit Stock Details</DialogTitle>
+							<DialogTitle>Edit stock</DialogTitle>
 							<DialogDescription>
-								Update the stock information below. Make sure to save your
-								changes before closing the dialog.
+								Changes reach players as soon as you save.
 							</DialogDescription>
 						</DialogHeader>
 						<FieldGroup className="my-4">
 							<FieldSet>
 								<FieldGroup>
+									{stock.data && (
+										<Field>
+											<FieldLabel>Logo</FieldLabel>
+											<LogoChangePicker
+												symbol={stock.data.symbol}
+												currentUrl={stock.data.logo_url}
+												change={logoChange}
+												onChange={setLogoChange}
+											/>
+											<FieldDescription>
+												{STOCK_FIELD_HELP.logo}
+											</FieldDescription>
+										</Field>
+									)}
 									<editStockForm.Field name="name">
 										{({ state, handleChange, handleBlur }) => (
 											<Field>
-												<FieldLabel>Name</FieldLabel>
+												<FieldLabel htmlFor="edit-stock-name">Name</FieldLabel>
 												<Input
+													id="edit-stock-name"
 													value={state.value}
 													onChange={(e) => handleChange(e.target.value)}
 													onBlur={handleBlur}
 												/>
+												<FieldDescription>
+													{STOCK_FIELD_HELP.name}
+												</FieldDescription>
 											</Field>
 										)}
 									</editStockForm.Field>
-									<editStockForm.Field name="symbol">
-										{({ state, handleChange, handleBlur }) => (
-											<Field>
-												<FieldLabel>Symbol</FieldLabel>
-												<Input
-													value={state.value}
-													onChange={(e) => handleChange(e.target.value)}
-													onBlur={handleBlur}
-												/>
-											</Field>
-										)}
-									</editStockForm.Field>
-									<editStockForm.Field name="sector">
-										{({ state, handleChange }) => (
-											<Field>
-												<FieldLabel>Sector</FieldLabel>
-												<Select
-													value={state.value}
-													onValueChange={(value) => handleChange(value)}
-												>
-													<SelectTrigger className="w-[180px]">
-														<SelectValue placeholder="Sector" />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectGroup>
-															{allSectors.data?.map((sector) => (
-																<SelectItem key={sector} value={sector}>
-																	{sector}
-																</SelectItem>
-															))}
-														</SelectGroup>
-													</SelectContent>
-												</Select>
-											</Field>
-										)}
-									</editStockForm.Field>
+									<div className="grid gap-4 sm:grid-cols-2">
+										<editStockForm.Field name="symbol">
+											{({ state, handleChange, handleBlur }) => (
+												<Field>
+													<FieldLabel htmlFor="edit-stock-symbol">
+														Symbol
+													</FieldLabel>
+													<Input
+														id="edit-stock-symbol"
+														maxLength={10}
+														value={state.value}
+														onChange={(e) => handleChange(e.target.value)}
+														onBlur={handleBlur}
+													/>
+													<FieldDescription>
+														{STOCK_FIELD_HELP.symbol}
+													</FieldDescription>
+												</Field>
+											)}
+										</editStockForm.Field>
+										<editStockForm.Field name="sector">
+											{({ state, handleChange, handleBlur }) => (
+												<Field>
+													<FieldLabel htmlFor="edit-stock-sector">
+														Sector
+													</FieldLabel>
+													<SectorCombobox
+														id="edit-stock-sector"
+														value={state.value}
+														onChange={handleChange}
+														onBlur={handleBlur}
+														sectors={allSectors.data ?? []}
+													/>
+													<FieldDescription>
+														{STOCK_FIELD_HELP.sector}
+													</FieldDescription>
+												</Field>
+											)}
+										</editStockForm.Field>
+									</div>
 									<editStockForm.Field name="volatility">
 										{({ state, handleChange, handleBlur }) => (
 											<Field>
-												<FieldLabel>Volatility</FieldLabel>
+												<FieldLabel htmlFor="edit-stock-volatility">
+													Volatility
+												</FieldLabel>
 												<Input
+													id="edit-stock-volatility"
 													type="number"
 													step="0.01"
+													min="0.05"
+													max="1"
 													value={state.value}
 													onChange={(e) => handleChange(Number(e.target.value))}
 													onBlur={handleBlur}
 												/>
+												<FieldDescription>
+													{STOCK_FIELD_HELP.volatility}
+												</FieldDescription>
 											</Field>
 										)}
 									</editStockForm.Field>
@@ -317,17 +373,18 @@ function RouteComponent() {
 										{({ state, handleChange }) => (
 											<Field orientation="horizontal">
 												<FieldContent>
-													<FieldLabel>Lock</FieldLabel>
+													<FieldLabel htmlFor="edit-stock-locked">
+														Lock trading
+													</FieldLabel>
 													<FieldDescription>
-														Locking the stock halts all trading in it
+														{STOCK_FIELD_HELP.lock}
 													</FieldDescription>
 												</FieldContent>
 												<Switch
+													id="edit-stock-locked"
 													checked={state.value}
 													onCheckedChange={(value) => handleChange(!!value)}
-												>
-													{state.value ? "Locked" : "Unlocked"}
-												</Switch>
+												/>
 											</Field>
 										)}
 									</editStockForm.Field>
@@ -361,7 +418,7 @@ function RouteComponent() {
 				onOpenChange={setIsAddRecordDialogOpen}
 			>
 				{/* Implement the dialog for adding/editing OHLC records here */}
-				<DialogContent>
+				<DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto">
 					<form
 						onSubmit={(e) => {
 							e.preventDefault();

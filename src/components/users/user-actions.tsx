@@ -101,7 +101,7 @@ export function useUserActions({ onDone }: { onDone?: (action: BulkAction, ids: 
 	const dialogs: ReactNode = (
 		<>
 			<Dialog open={banTarget !== null} onOpenChange={(open) => !open && setBanTarget(null)}>
-				<DialogContent>
+				<DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto">
 					<form
 						className="flex flex-col gap-6"
 						onSubmit={(event) => {
@@ -167,7 +167,7 @@ export function useUserActions({ onDone }: { onDone?: (action: BulkAction, ids: 
 			</Dialog>
 
 			<Dialog open={rejectTarget !== null} onOpenChange={(open) => !open && setRejectTarget(null)}>
-				<DialogContent>
+				<DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto">
 					<DialogHeader>
 						<DialogTitle>Reject {rejectTarget?.label}?</DialogTitle>
 						<DialogDescription>

@@ -24,8 +24,12 @@ import {
 	getAllSectors,
 	getAllStockPrices,
 	getAllStocks,
+	uploadStockLogo,
 } from "#/api/stocks";
+import { usersErrorMessage } from "#/api/users";
+import { LogoPicker } from "#/components/logo-picker";
 import { PageHeader } from "#/components/page-header";
+import { SectorCombobox } from "#/components/sector-combobox";
 import { StockLogo } from "#/components/stock-logo";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -49,20 +53,13 @@ import {
 import {
 	Field,
 	FieldDescription,
+	FieldError,
 	FieldGroup,
 	FieldLabel,
 	FieldSet,
 } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import { Loading } from "#/components/ui/loading";
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "#/components/ui/select";
 import { Spinner } from "#/components/ui/spinner";
 import {
 	Table,
@@ -73,6 +70,7 @@ import {
 	TableRow,
 } from "#/components/ui/table";
 import useSocket from "#/hooks/use-socket";
+import { STOCK_FIELD_HELP } from "#/lib/stock-field-help";
 import { type AdminTableFeatures, adminTableFeatures } from "#/lib/table";
 import { cn } from "#/lib/utils";
 import type { Stock, StockOHLC } from "#/types/stock";
@@ -357,6 +355,11 @@ function RouteComponent() {
 		},
 	});
 
+	// The logo is chosen before the stock exists and uploaded once it does.
+	// Every stock needs one, so a submit without it is stopped here.
+	const [logo, setLogo] = useState<File | null>(null);
+	const [logoMissing, setLogoMissing] = useState(false);
+
 	const addStockForm = useForm({
 		defaultValues: {
 			name: "",
@@ -366,7 +369,10 @@ function RouteComponent() {
 			initPrice: 0,
 		},
 		onSubmit: async ({ value }) => {
-			// Call API to add stock
+			if (!logo) {
+				setLogoMissing(true);
+				return;
+			}
 			try {
 				const stockData: Omit<
 					Stock,
@@ -378,9 +384,23 @@ function RouteComponent() {
 					volatility: value.volatility,
 				};
 				const newStock = await addStock(stockData, value.initPrice);
-				console.log("Added new stock:", newStock);
 				toast.success("Stock added successfully!");
+
+				// The stock exists now; a failed logo upload should not lose it.
+				try {
+					await uploadStockLogo(newStock.id, logo);
+					setLogo(null);
+				} catch (error) {
+					toast.error(
+						usersErrorMessage(
+							error,
+							"Stock added, but the logo could not be uploaded. Try again from its page.",
+						),
+					);
+				}
 				stocks.refetch();
+				// A new sector shows up in the list for the next stock.
+				queryClient.invalidateQueries({ queryKey: ["sectors"] });
 			} catch (error) {
 				console.error("Error adding stock:", error);
 				toast.error("Failed to add stock.");
@@ -421,7 +441,7 @@ function RouteComponent() {
 							Add stock
 						</Button>
 					</DialogTrigger>
-					<DialogContent>
+					<DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-xl">
 						<form
 							onSubmit={(e) => {
 								e.preventDefault();
@@ -441,83 +461,116 @@ function RouteComponent() {
 										<addStockForm.Field name="name">
 											{({ state, handleChange, handleBlur }) => (
 												<Field>
-													<FieldLabel>Stock Name</FieldLabel>
+													<FieldLabel htmlFor="stock-name">Stock Name</FieldLabel>
 													<Input
+														id="stock-name"
 														type="text"
+														placeholder="Reliance Industries"
 														value={state.value}
 														onChange={(e) => handleChange(e.target.value)}
 														onBlur={handleBlur}
 													/>
+													<FieldDescription>{STOCK_FIELD_HELP.name}</FieldDescription>
 												</Field>
 											)}
 										</addStockForm.Field>
-										<addStockForm.Field name="symbol">
-											{({ state, handleChange, handleBlur }) => (
-												<Field>
-													<FieldLabel>Stock Symbol</FieldLabel>
-													<Input
-														type="text"
-														value={state.value}
-														onChange={(e) => handleChange(e.target.value)}
-														onBlur={handleBlur}
+										<div className="grid gap-4 sm:grid-cols-2">
+											<addStockForm.Field name="symbol">
+												{({ state, handleChange, handleBlur }) => (
+													<Field>
+														<FieldLabel htmlFor="stock-symbol">Stock Symbol</FieldLabel>
+														<Input
+															id="stock-symbol"
+															type="text"
+															placeholder="RELIANCE"
+															maxLength={10}
+															value={state.value}
+															onChange={(e) => handleChange(e.target.value)}
+															onBlur={handleBlur}
+														/>
+														<FieldDescription>{STOCK_FIELD_HELP.symbol}</FieldDescription>
+													</Field>
+												)}
+											</addStockForm.Field>
+											<addStockForm.Field name="sector">
+												{({ state, handleChange, handleBlur }) => (
+													<Field>
+														<FieldLabel htmlFor="stock-sector">Sector</FieldLabel>
+														<SectorCombobox
+															id="stock-sector"
+															value={state.value}
+															onChange={handleChange}
+															onBlur={handleBlur}
+															sectors={allSectors.data ?? []}
+														/>
+														<FieldDescription>{STOCK_FIELD_HELP.sector}</FieldDescription>
+													</Field>
+												)}
+											</addStockForm.Field>
+										</div>
+										<div className="grid gap-4 sm:grid-cols-2">
+											<addStockForm.Field name="volatility">
+												{({ state, handleChange, handleBlur }) => (
+													<Field>
+														<FieldLabel htmlFor="stock-volatility">Volatility</FieldLabel>
+														<Input
+															id="stock-volatility"
+															type="number"
+															step="0.01"
+															min="0.05"
+															max="1"
+															placeholder="0.25"
+															value={state.value}
+															onChange={(e) =>
+																handleChange(Number(e.target.value))
+															}
+															onBlur={handleBlur}
+														/>
+														<FieldDescription>{STOCK_FIELD_HELP.volatility}</FieldDescription>
+													</Field>
+												)}
+											</addStockForm.Field>
+											<addStockForm.Field name="initPrice">
+												{({ state, handleChange, handleBlur }) => (
+													<Field>
+														<FieldLabel htmlFor="stock-price">Initial Price</FieldLabel>
+														<Input
+															id="stock-price"
+															type="number"
+															step="0.01"
+															min="0.01"
+															placeholder="1500"
+															value={state.value}
+															onChange={(e) =>
+																handleChange(Number(e.target.value))
+															}
+															onBlur={handleBlur}
+														/>
+														<FieldDescription>{STOCK_FIELD_HELP.initialPrice}</FieldDescription>
+													</Field>
+												)}
+											</addStockForm.Field>
+										</div>
+										<Field data-invalid={logoMissing || undefined}>
+											<FieldLabel>Logo</FieldLabel>
+											<addStockForm.Subscribe
+												selector={(state) => state.values.symbol}
+											>
+												{(symbol) => (
+													<LogoPicker
+														symbol={symbol}
+														file={logo}
+														onChange={(file) => {
+															setLogo(file);
+															if (file) setLogoMissing(false);
+														}}
 													/>
-												</Field>
+												)}
+											</addStockForm.Subscribe>
+											{logoMissing && (
+												<FieldError>Choose a logo for the stock.</FieldError>
 											)}
-										</addStockForm.Field>
-										<addStockForm.Field name="sector">
-											{({ state, handleChange }) => (
-												<Field>
-													<FieldLabel>Sector</FieldLabel>
-													<Select
-														value={state.value}
-														onValueChange={(value) => handleChange(value)}
-													>
-														<SelectTrigger className="w-[180px]">
-															<SelectValue placeholder="Sector" />
-														</SelectTrigger>
-														<SelectContent>
-															<SelectGroup>
-																{allSectors.data?.map((sector) => (
-																	<SelectItem key={sector} value={sector}>
-																		{sector}
-																	</SelectItem>
-																))}
-															</SelectGroup>
-														</SelectContent>
-													</Select>
-												</Field>
-											)}
-										</addStockForm.Field>
-										<addStockForm.Field name="volatility">
-											{({ state, handleChange, handleBlur }) => (
-												<Field>
-													<FieldLabel>Volatility</FieldLabel>
-													<Input
-														type="number"
-														value={state.value}
-														onChange={(e) =>
-															handleChange(Number(e.target.value))
-														}
-														onBlur={handleBlur}
-													/>
-												</Field>
-											)}
-										</addStockForm.Field>
-										<addStockForm.Field name="initPrice">
-											{({ state, handleChange, handleBlur }) => (
-												<Field>
-													<FieldLabel>Initial Price</FieldLabel>
-													<Input
-														type="number"
-														value={state.value}
-														onChange={(e) =>
-															handleChange(Number(e.target.value))
-														}
-														onBlur={handleBlur}
-													/>
-												</Field>
-											)}
-										</addStockForm.Field>
+										</Field>
 									</FieldGroup>
 								</FieldSet>
 							</FieldGroup>

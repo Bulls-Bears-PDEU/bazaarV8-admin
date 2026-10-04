@@ -81,7 +81,7 @@ export function StockSearch({ open, onOpenChange }: { open: boolean; onOpenChang
 						aria-label="Search stocks"
 					/>
 				</div>
-				<ul className="max-h-80 overflow-y-auto p-1" aria-label="Matching stocks">
+				<ul className="max-h-[min(20rem,calc(85svh-6rem))] overflow-y-auto p-1" aria-label="Matching stocks">
 					{stocks.isPending && (
 						<li className="px-3 py-6 text-center text-sm text-muted-foreground">Loading stocks…</li>
 					)}

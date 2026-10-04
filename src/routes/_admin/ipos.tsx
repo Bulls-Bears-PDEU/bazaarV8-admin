@@ -11,18 +11,17 @@ import {
 	CirclePlay,
 	CircleStop,
 	CircleX,
-	ImageUp,
 	type LucideIcon,
 	Pencil,
 	Plus,
 	Scale,
-	X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
 	addIpo,
 	getAllIposAdmin,
+	removeIpoLogo,
 	updateIpo,
 	updateIpoStatus,
 	uploadIpoLogo,
@@ -32,10 +31,10 @@ import { usersErrorMessage } from "#/api/users";
 import { DateTimePicker } from "#/components/date-time-picker";
 import { IpoAllotDialog } from "#/components/ipo-allot-dialog";
 import {
-	IpoLogoEditor,
-	LOGO_ACCEPTED,
-	logoFileProblem,
-} from "#/components/ipo-logo-editor";
+	type LogoChange,
+	LogoChangePicker,
+	LogoPicker,
+} from "#/components/logo-picker";
 import { PageHeader } from "#/components/page-header";
 import { SectorCombobox } from "#/components/sector-combobox";
 import { SectionTitle, Stat } from "#/components/stat";
@@ -54,6 +53,7 @@ import {
 import {
 	Field,
 	FieldDescription,
+	FieldError,
 	FieldGroup,
 	FieldLabel,
 	FieldLegend,
@@ -560,7 +560,7 @@ function IpoFormDialog({
 }) {
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+			<DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-3xl">
 				{/* Keyed, so the form starts from the right IPO each time. */}
 				<IpoForm
 					key={ipo?.id ?? "new"}
@@ -585,20 +585,11 @@ function IpoForm({
 	const queryClient = useQueryClient();
 	const editing = ipo !== null;
 	const termsLocked = termsLockedFor(ipo);
+	// A new IPO needs a logo: it is copied onto the stock when the IPO lists.
 	const [logo, setLogo] = useState<File | null>(null);
-	const logoInput = useRef<HTMLInputElement>(null);
-
-	// A local preview of the chosen file, released when it changes.
-	const logoPreview = useMemo(
-		() => (logo ? URL.createObjectURL(logo) : null),
-		[logo],
-	);
-	useEffect(
-		() => () => {
-			if (logoPreview) URL.revokeObjectURL(logoPreview);
-		},
-		[logoPreview],
-	);
+	const [logoMissing, setLogoMissing] = useState(false);
+	// When editing, a logo change waits for Save like the other fields.
+	const [logoChange, setLogoChange] = useState<LogoChange>(undefined);
 
 	const form = useForm({
 		...formOptions({
@@ -628,9 +619,30 @@ function IpoForm({
 					toast.error(usersErrorMessage(error, "Could not save the IPO."));
 					return;
 				}
+				// The details are saved; a failed logo change keeps the dialog open
+				// with the change still in it, so saving again retries it.
+				let logoSaved = true;
+				try {
+					if (logoChange) await uploadIpoLogo(ipo.id, logoChange);
+					else if (logoChange === null) await removeIpoLogo(ipo.id);
+				} catch (error) {
+					logoSaved = false;
+					toast.error(
+						usersErrorMessage(
+							error,
+							"Details saved, but the logo could not be changed.",
+						),
+					);
+				}
 				await queryClient.invalidateQueries({ queryKey: ["admin-ipos"] });
+				if (!logoSaved) return;
 				toast.success("IPO updated.");
 				onDone();
+				return;
+			}
+
+			if (!logo) {
+				setLogoMissing(true);
 				return;
 			}
 
@@ -644,17 +656,15 @@ function IpoForm({
 			}
 
 			// The IPO exists now; a failed logo upload should not lose it.
-			if (logo) {
-				try {
-					await uploadIpoLogo(id, logo);
-				} catch (error) {
-					toast.error(
-						usersErrorMessage(
-							error,
-							"IPO created, but the logo could not be uploaded. Try again from its row.",
-						),
-					);
-				}
+			try {
+				await uploadIpoLogo(id, logo);
+			} catch (error) {
+				toast.error(
+					usersErrorMessage(
+						error,
+						"IPO created, but the logo could not be uploaded. Try again from its row.",
+					),
+				);
 			}
 
 			await queryClient.invalidateQueries({ queryKey: ["admin-ipos"] });
@@ -687,74 +697,39 @@ function IpoForm({
 					{ipo ? (
 						<Field>
 							<FieldLabel>Logo</FieldLabel>
-							<IpoLogoEditor
-								ipoId={ipo.id}
+							<LogoChangePicker
 								symbol={ipo.symbol}
-								logoUrl={ipo.logo_url}
+								currentUrl={ipo.logo_url}
+								change={logoChange}
+								onChange={setLogoChange}
 							/>
 							<FieldDescription>
-								Saved as soon as you upload or remove it. Carried over to the
-								stock when it lists.
+								Shown on the IPO card and carried over to the stock when it
+								lists.
 							</FieldDescription>
 						</Field>
 					) : (
-						<Field>
+						<Field data-invalid={logoMissing || undefined}>
 							<FieldLabel>Logo</FieldLabel>
-							<div className="flex items-center gap-3">
-								<form.Subscribe selector={(state) => state.values.symbol}>
-									{(symbol) => (
-										<StockLogo
-											symbol={symbol.trim().toUpperCase() || "?"}
-											logoUrl={logoPreview}
-											size="lg"
-										/>
-									)}
-								</form.Subscribe>
-								<input
-									ref={logoInput}
-									type="file"
-									accept={LOGO_ACCEPTED.join(",")}
-									className="sr-only"
-									tabIndex={-1}
-									onChange={(event) => {
-										const file = event.target.files?.[0];
-										// Cleared so choosing the same file again still fires.
-										event.target.value = "";
-										if (!file) return;
-										const problem = logoFileProblem(file);
-										if (problem) {
-											toast.error(problem);
-											return;
-										}
-										setLogo(file);
-									}}
-								/>
-								<Button
-									type="button"
-									size="sm"
-									variant="outline"
-									onClick={() => logoInput.current?.click()}
-								>
-									<ImageUp data-icon="inline-start" />
-									{logo ? "Change" : "Choose image"}
-								</Button>
-								{logo && (
-									<Button
-										type="button"
-										size="sm"
-										variant="ghost"
-										onClick={() => setLogo(null)}
-									>
-										<X data-icon="inline-start" />
-										Remove
-									</Button>
+							<form.Subscribe selector={(state) => state.values.symbol}>
+								{(symbol) => (
+									<LogoPicker
+										symbol={symbol}
+										file={logo}
+										onChange={(file) => {
+											setLogo(file);
+											if (file) setLogoMissing(false);
+										}}
+									/>
 								)}
-							</div>
+							</form.Subscribe>
 							<FieldDescription>
-								Optional. Shown on the IPO card and carried over to the stock
-								when it lists. PNG, JPEG or WebP up to 8 MB, resized to a
-								square. Until one is set, players see the symbol's initials.
+								Shown on the IPO card and carried over to the stock when it
+								lists.
 							</FieldDescription>
+							{logoMissing && (
+								<FieldError>Choose a logo for the IPO.</FieldError>
+							)}
 						</Field>
 					)}
 					<div className="grid gap-4 sm:grid-cols-2">

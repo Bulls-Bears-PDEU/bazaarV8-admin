@@ -342,7 +342,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 			<Sheet open={moreOpen} onOpenChange={setMoreOpen}>
 				<SheetContent
 					side="bottom"
-					className="rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+					className="max-h-[90svh] overflow-y-auto rounded-t-xl pb-[calc(env(safe-area-inset-bottom)+1rem)]"
 				>
 					<SheetHeader>
 						<SheetTitle>More</SheetTitle>
