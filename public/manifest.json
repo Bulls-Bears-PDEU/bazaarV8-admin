@@ -1,6 +1,7 @@
 {
-  "short_name": "TanStack App",
-  "name": "Create TanStack App Sample",
+  "short_name": "Bazaar Admin",
+  "name": "Bazaar Admin",
+  "description": "Bazaar: run the market.",
   "icons": [
     {
       "src": "favicon.ico",

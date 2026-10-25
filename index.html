@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bazaar Admin</title>
     <meta name="description" content="Bazaar: run the market." />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/logo192.png" />
     <style>
       /* The splash below paints before the app's stylesheet arrives, so it
          carries its own copy of the two tokens it needs. */
@@ -30,20 +32,18 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 2.5rem;
-        height: 2.5rem;
-        border-radius: 0.875rem;
-        background: var(--boot-fg);
-        color: var(--boot-on);
-        animation: boot-breathe 1.8s ease-in-out infinite;
-      }
-      #boot .halo {
-        position: absolute;
         width: 3rem;
         height: 3rem;
-        border-radius: 0.875rem;
+        animation: boot-breathe 1.8s ease-in-out infinite;
+      }
+      #boot .mark img { position: relative; width: 100%; height: 100%; object-fit: contain; }
+      #boot .halo {
+        position: absolute;
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 999px;
         background: var(--boot-fg);
-        opacity: 0.25;
+        opacity: 0.15;
         animation: boot-halo 1.8s ease-in-out infinite;
       }
       #boot .bar {
@@ -100,11 +100,7 @@
     <div id="boot" role="status" aria-label="Loading Bazaar Admin">
       <span class="mark">
         <span class="halo"></span>
-        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="position: relative">
-          <path d="M4.5 2v12M11.5 2v12" stroke="currentColor" stroke-width="1.2" />
-          <rect x="3" y="4" width="3" height="6" rx="0.5" fill="currentColor" />
-          <rect x="10" y="6.5" width="3" height="5" rx="0.5" fill="none" stroke="currentColor" stroke-width="1.2" />
-        </svg>
+        <img src="/logo192.png" alt="" />
       </span>
       <span class="bar"><span></span></span>
     </div>

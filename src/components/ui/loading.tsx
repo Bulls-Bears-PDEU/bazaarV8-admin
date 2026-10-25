@@ -29,9 +29,9 @@ export function Loading({
 			<span className="relative flex items-center justify-center">
 				<span
 					aria-hidden="true"
-					className="boot-halo absolute size-12 rounded-xl bg-primary/25"
+					className="boot-halo absolute size-14 rounded-full bg-primary/15"
 				/>
-				<BrandMark className="boot-mark relative size-10 rounded-xl" />
+				<BrandMark className="boot-mark relative size-12" />
 			</span>
 			<span
 				aria-hidden="true"
